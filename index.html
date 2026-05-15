@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#006064">
+<title>Chittly — Smart Chit Fund Manager</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#E0F2F1;color:#333;font-size:14px;min-height:100vh}
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(135deg,#006064,#004D40)}
+.login-box{background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px 28px;max-width:360px;width:100%;text-align:center}
+.login-box h1{font-size:28px;color:#fff;margin-bottom:4px}
+.login-box .tagline{color:rgba(255,255,255,0.6);font-size:12px;margin-bottom:24px}
+.login-box input{width:100%;padding:13px 16px;border:2px solid rgba(255,255,255,0.15);border-radius:10px;font-size:14px;margin-bottom:10px;background:rgba(255,255,255,0.05);color:#fff}
+.login-box input::placeholder{color:rgba(255,255,255,0.4)}
+.login-box input:focus{outline:none;border-color:#FFD700}
+.login-box .btn-login{width:100%;padding:13px;background:linear-gradient(135deg,#FFD700,#FFA000);color:#004D40;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
+.login-box .btn-link{background:none;border:none;color:rgba(255,255,255,0.6);font-size:12px;cursor:pointer;margin-top:12px}
+.login-error{color:#FF5252;font-size:12px;margin-top:8px;display:none}
+.app{display:none}
+.header{background:linear-gradient(135deg,#006064,#004D40);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.header h1{font-size:17px}
+.logout-btn{background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer}
+.container{max-width:600px;margin:0 auto;padding:14px}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.card h2{font-size:13px;color:#006064;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #E0F2F1}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.row label{font-size:12px;color:#555;font-weight:600;min-width:110px}
+input[type="number"],input[type="text"],input[type="email"],select{padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100%;max-width:200px}
+.btn{padding:10px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-primary{background:#006064;color:#fff}
+.btn-gold{background:linear-gradient(135deg,#FFD700,#FFA000);color:#004D40}
+.btn-red{background:#D32F2F;color:#fff}
+.btn-sm{padding:7px 12px;font-size:11px}
+.btn-full{width:100%;padding:13px;font-size:14px}
+.tabs{display:flex;gap:4px;margin-bottom:12px;overflow-x:auto}
+.tab{padding:9px 14px;border:2px solid #e0e0e0;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:#fff;color:#555;white-space:nowrap}
+.tab.active{border-color:#006064;background:#006064;color:#fff}
+.tab-content{display:none}.tab-content.active{display:block}
+.member-item{display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #f0f0f0;font-size:13px}
+.badge{display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.badge-won{background:#E8F5E9;color:#2E7D32}
+.badge-pending{background:#FFF3E0;color:#E65100}
+.badge-paid{background:#E3F2FD;color:#1565C0}
+.badge-late{background:#FFEBEE;color:#D32F2F}
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
+.summary-card{background:#f5f5f5;border-radius:8px;padding:12px;text-align:center}
+.summary-card .value{font-size:18px;font-weight:700;color:#006064}
+.summary-card .label{font-size:10px;color:#777;margin-top:3px}
+.bid-result{background:#E8F5E9;border:2px solid #4CAF50;border-radius:12px;padding:14px;margin:12px 0;text-align:center}
+.stars{color:#FFD700}
+.history-table{width:100%;font-size:11px;border-collapse:collapse}
+.history-table th{background:#006064;color:#fff;padding:6px}
+.history-table td{padding:6px;border:1px solid #eee;text-align:center}
+.loading{text-align:center;padding:40px;color:#999}
+.msg{padding:10px;border-radius:8px;margin:8px 0;font-size:12px}
+.msg-success{background:#E8F5E9;color:#2E7D32}
+.msg-error{background:#FFEBEE;color:#D32F2F}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="login-screen">
+<div class="login-box">
+<h1>Chittly</h1>
+<p class="tagline">Smart Chit Fund Manager</p>
+<input type="email" id="loginEmail" placeholder="Email">
+<input type="password" id="loginPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+<button class="btn-login" onclick="doLogin()">LOGIN</button>
+<button class="btn-link" onclick="toggleRegister()">New member? Register</button>
+<div id="registerFields" style="display:none;margin-top:12px">
+<input type="text" id="regName" placeholder="Full Name">
+<input type="email" id="regEmail" placeholder="Email">
+<input type="password" id="regPass" placeholder="Password (min 6 chars)">
+<button class="btn-login" style="background:#4CAF50;color:#fff" onclick="doRegister()">REGISTER</button>
+</div>
+<p class="login-error" id="loginError"></p>
+</div>
+</div>
+
+<!-- APP -->
+<div id="app" class="app">
+<div class="header">
+<h1>Chittly</h1>
+<div><span id="userName" style="font-size:11px;opacity:.7;margin-right:8px"></span><button class="logout-btn" onclick="doLogout()">Logout</button></div>
+</div>
+<div class="container" id="appContainer"></div>
+</div>
+
+<script>
+// Firebase Config
+firebase.initializeApp({
+    apiKey: "AIzaSyBGeuNGyr5N7xEKr-1XTeFcbeog2H8LZoQ",
+    authDomain: "chittly.firebaseapp.com",
+    projectId: "chittly",
+    storageBucket: "chittly.firebasestorage.app",
+    messagingSenderId: "160161440830",
+    appId: "1:160161440830:web:3d255a5b0fbe19d6f01d6f"
+});
+
+const auth = firebase.auth();
+const db = firebase.firestore();
+let currentUser = null;
+let userRole = 'member';
+
+// AUTH
+function doLogin(){
+    const email=document.getElementById('loginEmail').value.trim();
+    const pass=document.getElementById('loginPass').value;
+    const err=document.getElementById('loginError');
+    err.style.display='none';
+    auth.signInWithEmailAndPassword(email,pass).catch(e=>{err.textContent=e.message;err.style.display='block';});
+}
+function doRegister(){
+    const name=document.getElementById('regName').value.trim();
+    const email=document.getElementById('regEmail').value.trim();
+    const pass=document.getElementById('regPass').value;
+    const err=document.getElementById('loginError');
+    if(!name){err.textContent='Enter your name.';err.style.display='block';return;}
+    err.style.display='none';
+    auth.createUserWithEmailAndPassword(email,pass).then(cred=>{
+        return db.collection('users').doc(cred.user.uid).set({name,email,role:'member',rating:5,onTime:0,late:0,createdAt:new Date()});
+    }).catch(e=>{err.textContent=e.message;err.style.display='block';});
+}
+function doLogout(){auth.signOut();}
+function toggleRegister(){
+    const el=document.getElementById('registerFields');
+    el.style.display=el.style.display==='none'?'block':'none';
+}
+
+auth.onAuthStateChanged(async user=>{
+    if(user){
+        currentUser=user;
+        document.getElementById('loginScreen').style.display='none';
+        document.getElementById('app').style.display='block';
+        // Get user role
+        const doc=await db.collection('users').doc(user.uid).get();
+        if(doc.exists){
+            userRole=doc.data().role||'member';
+            document.getElementById('userName').textContent=doc.data().name+' ('+userRole+')';
+        } else {
+            userRole='member';
+            document.getElementById('userName').textContent=user.email;
+        }
+        renderApp();
+    } else {
+        currentUser=null;
+        document.getElementById('loginScreen').style.display='flex';
+        document.getElementById('app').style.display='none';
+    }
+});
+
+// RENDER APP BASED ON ROLE
+function renderApp(){
+    if(userRole==='admin') renderAdmin();
+    else renderMember();
+}
+
+// ═══════════════════════════════════════════════════
+// ADMIN VIEW
+// ═══════════════════════════════════════════════════
+function renderAdmin(){
+    document.getElementById('appContainer').innerHTML=`
+    <div class="tabs">
+        <div class="tab active" onclick="adminTab('setup')">Setup</div>
+        <div class="tab" onclick="adminTab('bid')">Bid</div>
+        <div class="tab" onclick="adminTab('members')">Members</div>
+        <div class="tab" onclick="adminTab('history')">History</div>
+    </div>
+    <div id="adminContent"><div class="loading">Loading...</div></div>`;
+    adminTab('setup');
+}
+
+function adminTab(t){
+    document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+    event.target.classList.add('active');
+    if(t==='setup') loadSetup();
+    else if(t==='bid') loadBid();
+    else if(t==='members') loadMembers();
+    else if(t==='history') loadHistory();
+}
+
+async function loadSetup(){
+    const doc=await db.collection('config').doc('chit').get();
+    const c=doc.exists?doc.data():{name:'My Chit 2026',numMembers:10,monthlyAmt:5000,commission:5};
+    document.getElementById('adminContent').innerHTML=`
+    <div class="card"><h2>Chit Configuration</h2>
+    <div class="row"><label>Chit Name:</label><input type="text" id="cName" value="${c.name}"></div>
+    <div class="row"><label>Members:</label><input type="number" id="cMembers" value="${c.numMembers}" min="5" max="50" style="max-width:80px"></div>
+    <div class="row"><label>Monthly (Rs):</label><select id="cAmt">${[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,15000,20000].map(v=>`<option value="${v}" ${v==c.monthlyAmt?'selected':''}>Rs ${v.toLocaleString('en-IN')}</option>`).join('')}</select></div>
+    <div class="row"><label>Commission %:</label><input type="number" id="cComm" value="${c.commission}" step="0.5" style="max-width:80px"></div>
+    <button class="btn btn-gold btn-full" onclick="saveSetup()">Save Configuration</button>
+    <div id="setupMsg"></div></div>
+    <div class="card"><h2>Add Member</h2>
+    <div class="row"><input type="text" id="mName" placeholder="Name" style="max-width:150px"><input type="email" id="mEmail" placeholder="Email" style="max-width:180px"><button class="btn btn-primary btn-sm" onclick="addMember()">+Add</button></div>
+    <div id="membersList"></div></div>`;
+    loadMembersList();
+}
+
+async function saveSetup(){
+    await db.collection('config').doc('chit').set({
+        name:document.getElementById('cName').value,
+        numMembers:parseInt(document.getElementById('cMembers').value),
+        monthlyAmt:parseInt(document.getElementById('cAmt').value),
+        commission:parseFloat(document.getElementById('cComm').value)
+    });
+    document.getElementById('setupMsg').innerHTML='<div class="msg msg-success">Saved!</div>';
+}
+
+async function addMember(){
+    const name=document.getElementById('mName').value.trim();
+    const email=document.getElementById('mEmail').value.trim();
+    if(!name||!email){alert('Enter name and email.');return;}
+    await db.collection('members').add({name,email,won:false,wonMonth:null,rating:5,onTime:0,late:0,payments:[]});
+    document.getElementById('mName').value='';document.getElementById('mEmail').value='';
+    loadMembersList();
+}
+
+async function loadMembersList(){
+    const snap=await db.collection('members').get();
+    let html='';
+    snap.forEach(doc=>{
+        const m=doc.data();
+        const badge=m.won?'<span class="badge badge-won">Won M'+m.wonMonth+'</span>':'<span class="badge badge-pending">Pending</span>';
+        html+=`<div class="member-item"><div><b>${m.name}</b><br><span style="font-size:10px;color:#777">${m.email}</span></div><div>${badge}<br><span class="stars">${'★'.repeat(Math.round(m.rating||5))}</span></div></div>`;
+    });
+    const el=document.getElementById('membersList');
+    if(el) el.innerHTML=html||'<p style="color:#999;text-align:center;padding:16px">No members yet.</p>';
+}
+
+async function loadBid(){
+    const config=(await db.collection('config').doc('chit').get()).data()||{numMembers:10,monthlyAmt:5000,commission:5};
+    const bidsSnap=await db.collection('bids').orderBy('month').get();
+    const currentMonth=bidsSnap.size+1;
+    const pool=config.numMembers*config.monthlyAmt;
+    const comm=pool*config.commission/100;
+
+    const membersSnap=await db.collection('members').where('won','==',false).get();
+    let opts='<option value="">-- Select Winner --</option>';
+    membersSnap.forEach(doc=>{opts+=`<option value="${doc.id}">${doc.data().name}</option>`;});
+
+    document.getElementById('adminContent').innerHTML=`
+    <div class="card"><h2>Month ${currentMonth} Bid</h2>
+    <div class="summary-grid">
+        <div class="summary-card"><div class="value">Rs ${pool.toLocaleString('en-IN')}</div><div class="label">Pool</div></div>
+        <div class="summary-card"><div class="value">Rs ${comm.toLocaleString('en-IN')}</div><div class="label">Commission</div></div>
+    </div>
+    <div class="row"><label>Winner:</label><select id="bidWinner">${opts}</select></div>
+    <div class="row"><label>Bid Amount:</label><input type="number" id="bidAmt" placeholder="Rs" style="max-width:140px"></div>
+    <button class="btn btn-gold btn-full" onclick="processBid(${currentMonth},${pool},${comm})">Process Bid</button>
+    <div id="bidResult"></div></div>`;
+}
+
+async function processBid(month,pool,comm){
+    const winnerId=document.getElementById('bidWinner').value;
+    const bidAmt=parseInt(document.getElementById('bidAmt').value);
+    if(!winnerId){alert('Select winner.');return;}
+    if(!bidAmt||bidAmt<=0){alert('Enter bid amount.');return;}
+    if(bidAmt>pool-comm){alert('Bid cannot exceed pool minus commission.');return;}
+
+    const config=(await db.collection('config').doc('chit').get()).data();
+    const dividend=Math.round((pool-bidAmt-comm)/config.numMembers);
+    const netPayment=config.monthlyAmt-dividend;
+
+    const winnerDoc=await db.collection('members').doc(winnerId).get();
+    const winnerName=winnerDoc.data().name;
+
+    await db.collection('bids').add({month,winner:winnerName,winnerId,bidAmt,pool,commission:comm,dividend,netPayment,date:new Date()});
+    await db.collection('members').doc(winnerId).update({won:true,wonMonth:month});
+
+    document.getElementById('bidResult').innerHTML=`<div class="bid-result">
+        <h3>Month ${month} Done!</h3>
+        <p><b>Winner:</b> ${winnerName}</p>
+        <p><b>Bid:</b> Rs ${bidAmt.toLocaleString('en-IN')}</p>
+        <p><b>Dividend/member:</b> Rs ${dividend.toLocaleString('en-IN')}</p>
+        <p><b>Net payment:</b> Rs ${netPayment.toLocaleString('en-IN')}</p>
+    </div>`;
+}
+
+async function loadMembers(){
+    const snap=await db.collection('members').get();
+    let html='<div class="card"><h2>All Members</h2>';
+    snap.forEach(doc=>{
+        const m=doc.data();
+        const stars='★'.repeat(Math.round(m.rating||5))+'☆'.repeat(5-Math.round(m.rating||5));
+        const badge=m.won?`<span class="badge badge-won">Won M${m.wonMonth}</span>`:'<span class="badge badge-pending">Pending</span>';
+        html+=`<div class="member-item"><div><b>${m.name}</b> ${badge}<br><span style="font-size:10px">${m.email}</span></div><div><span class="stars">${stars}</span><br><span style="font-size:10px">On-time:${m.onTime||0} Late:${m.late||0}</span><br><button class="btn btn-sm btn-primary" onclick="markPayment('${doc.id}','ontime')">On-time</button> <button class="btn btn-sm btn-red" onclick="markPayment('${doc.id}','late')">Late</button></div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('adminContent').innerHTML=html;
+}
+
+async function markPayment(id,status){
+    const ref=db.collection('members').doc(id);
+    const doc=await ref.get();
+    const m=doc.data();
+    let onTime=m.onTime||0, late=m.late||0;
+    if(status==='ontime') onTime++; else late++;
+    const total=onTime+late;
+    const rating=Math.max(1,Math.min(5,Math.round((onTime/total)*5)));
+    await ref.update({onTime,late,rating});
+    loadMembers();
+}
+
+async function loadHistory(){
+    const snap=await db.collection('bids').orderBy('month').get();
+    let html='<div class="card"><h2>Bid History</h2><table class="history-table"><thead><tr><th>M</th><th>Winner</th><th>Bid</th><th>Dividend</th><th>Net</th></tr></thead><tbody>';
+    snap.forEach(doc=>{
+        const b=doc.data();
+        html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td>Rs ${b.dividend.toLocaleString('en-IN')}</td><td>Rs ${b.netPayment.toLocaleString('en-IN')}</td></tr>`;
+    });
+    html+='</tbody></table></div>';
+    document.getElementById('adminContent').innerHTML=html||'<div class="card"><p>No bids yet.</p></div>';
+}
+
+// ═══════════════════════════════════════════════════
+// MEMBER VIEW
+// ═══════════════════════════════════════════════════
+async function renderMember(){
+    const container=document.getElementById('appContainer');
+    container.innerHTML='<div class="loading">Loading your data...</div>';
+
+    const config=(await db.collection('config').doc('chit').get()).data()||{name:'Chit',monthlyAmt:5000};
+    const bidsSnap=await db.collection('bids').orderBy('month').get();
+    const membersSnap=await db.collection('members').where('email','==',currentUser.email).get();
+
+    let myData=null;
+    membersSnap.forEach(doc=>{myData={id:doc.id,...doc.data()};});
+
+    if(!myData){
+        container.innerHTML='<div class="card"><h2>Welcome!</h2><p>Your account is registered but not yet added to a chit by the admin. Please contact the organizer.</p></div>';
+        return;
+    }
+
+    const totalMonths=bidsSnap.size;
+    const outstanding=(totalMonths)*config.monthlyAmt;
+    const stars='★'.repeat(Math.round(myData.rating||5))+'☆'.repeat(5-Math.round(myData.rating||5));
+
+    let html=`<div class="card"><h2>${config.name}</h2>
+    <div class="summary-grid">
+        <div class="summary-card"><div class="value">Rs ${config.monthlyAmt.toLocaleString('en-IN')}</div><div class="label">Monthly</div></div>
+        <div class="summary-card"><div class="value">${totalMonths}</div><div class="label">Months Done</div></div>
+    </div></div>`;
+
+    html+=`<div class="card"><h2>Your Status</h2>
+    <p><b>Name:</b> ${myData.name}</p>
+    <p><b>Status:</b> ${myData.won?'<span class="badge badge-won">Won Month '+myData.wonMonth+'</span>':'<span class="badge badge-pending">Not yet won</span>'}</p>
+    <p><b>Rating:</b> <span class="stars">${stars}</span> (${Math.round(myData.rating||5)}/5)</p>
+    <p><b>On-time payments:</b> ${myData.onTime||0} | <b>Late:</b> ${myData.late||0}</p>
+    </div>`;
+
+    // Recent bids
+    html+=`<div class="card"><h2>Recent Bids</h2><table class="history-table"><thead><tr><th>M</th><th>Winner</th><th>Bid</th><th>Your Payment</th></tr></thead><tbody>`;
+    bidsSnap.forEach(doc=>{
+        const b=doc.data();
+        html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td>Rs ${b.netPayment.toLocaleString('en-IN')}</td></tr>`;
+    });
+    html+=`</tbody></table></div>`;
+
+    container.innerHTML=html;
+}
+</script>
+</body>
+</html>
