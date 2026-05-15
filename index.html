@@ -197,7 +197,7 @@ async function loadSetup(){
     <button class="btn btn-gold btn-full" onclick="saveSetup()">Save Configuration</button>
     <div id="setupMsg"></div></div>
     <div class="card"><h2>Add Member</h2>
-    <div class="row"><input type="text" id="mName" placeholder="Name" style="max-width:150px"><input type="email" id="mEmail" placeholder="Email" style="max-width:180px"><button class="btn btn-primary btn-sm" onclick="addMember()">+Add</button></div>
+    <div class="row"><input type="text" id="mName" placeholder="Name" style="max-width:130px"><input type="email" id="mEmail" placeholder="Email" style="max-width:150px"><input type="text" id="mPhone" placeholder="Phone (91xxx)" style="max-width:120px"><button class="btn btn-primary btn-sm" onclick="addMember()">+Add</button></div>
     <div id="membersList"></div></div>`;
     loadMembersList();
 }
@@ -215,9 +215,10 @@ async function saveSetup(){
 async function addMember(){
     const name=document.getElementById('mName').value.trim();
     const email=document.getElementById('mEmail').value.trim();
+    const phone=document.getElementById('mPhone').value.trim();
     if(!name||!email){alert('Enter name and email.');return;}
-    await db.collection('members').add({name,email,won:false,wonMonth:null,rating:5,onTime:0,late:0,payments:[]});
-    document.getElementById('mName').value='';document.getElementById('mEmail').value='';
+    await db.collection('members').add({name,email,phone,won:false,wonMonth:null,rating:5,onTime:0,late:0});
+    document.getElementById('mName').value='';document.getElementById('mEmail').value='';document.getElementById('mPhone').value='';
     loadMembersList();
 }
 
@@ -284,15 +285,40 @@ async function processBid(month,pool,comm){
 
 async function loadMembers(){
     const snap=await db.collection('members').get();
+    const config=(await db.collection('config').doc('chit').get()).data()||{monthlyAmt:5000};
+    const bidsSnap=await db.collection('bids').get();
+    const currentMonth=bidsSnap.size+1;
     let html='<div class="card"><h2>All Members</h2>';
+    html+='<button class="btn btn-full" style="margin-bottom:12px;background:#25D366;color:#fff" onclick="sendAllReminders()">\ud83d\udcf1 Send All Reminders (WhatsApp)</button>';
     snap.forEach(doc=>{
         const m=doc.data();
-        const stars='★'.repeat(Math.round(m.rating||5))+'☆'.repeat(5-Math.round(m.rating||5));
+        const stars='\u2605'.repeat(Math.round(m.rating||5))+'\u2606'.repeat(5-Math.round(m.rating||5));
         const badge=m.won?`<span class="badge badge-won">Won M${m.wonMonth}</span>`:'<span class="badge badge-pending">Pending</span>';
-        html+=`<div class="member-item"><div><b>${m.name}</b> ${badge}<br><span style="font-size:10px">${m.email}</span></div><div><span class="stars">${stars}</span><br><span style="font-size:10px">On-time:${m.onTime||0} Late:${m.late||0}</span><br><button class="btn btn-sm btn-primary" onclick="markPayment('${doc.id}','ontime')">On-time</button> <button class="btn btn-sm btn-red" onclick="markPayment('${doc.id}','late')">Late</button></div></div>`;
+        const phone=m.phone||'';
+        html+=`<div class="member-item"><div><b>${m.name}</b> ${badge}<br><span style="font-size:10px">${m.email} | ${phone||'No phone'}</span></div><div style="text-align:right"><span class="stars">${stars}</span><br><button class="btn btn-sm btn-primary" onclick="markPayment('${doc.id}','ontime')">\u2713</button> <button class="btn btn-sm btn-red" onclick="markPayment('${doc.id}','late')">Late</button> <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="sendReminder('${m.name}','${phone}',${config.monthlyAmt},${currentMonth})">WA</button></div></div>`;
     });
     html+='</div>';
     document.getElementById('adminContent').innerHTML=html;
+}
+
+function sendReminder(name,phone,amount,month){
+    if(!phone){alert('No phone number for '+name);return;}
+    const p=phone.replace(/[^0-9]/g,'');
+    const msg=encodeURIComponent('Hi '+name+',\n\nYour Chittly payment of Rs '+amount.toLocaleString('en-IN')+' for Month '+month+' is due.\n\nPlease pay at the earliest.\n\n- Chittly Admin');
+    window.open('https://wa.me/'+p+'?text='+msg,'_blank');
+}
+
+async function sendAllReminders(){
+    const snap=await db.collection('members').get();
+    const config=(await db.collection('config').doc('chit').get()).data()||{monthlyAmt:5000};
+    const month=(await db.collection('bids').get()).size+1;
+    let count=0;
+    snap.forEach(doc=>{
+        const m=doc.data();
+        if(m.phone){count++;setTimeout(()=>{sendReminder(m.name,m.phone,config.monthlyAmt,month);},count*2000);}
+    });
+    if(count===0)alert('No members have phone numbers.');
+    else alert(count+' WhatsApp windows will open (2s apart). Send each manually.');
 }
 
 async function markPayment(id,status){
