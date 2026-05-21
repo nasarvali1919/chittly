@@ -15,38 +15,43 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;b
 .login-box{background:rgba(255,255,255,0.05);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px 28px;max-width:360px;width:100%;text-align:center}
 .login-box h1{font-size:28px;color:#fff;margin-bottom:4px}
 .login-box .tagline{color:rgba(255,255,255,0.6);font-size:12px;margin-bottom:24px}
-.login-box input{width:100%;padding:13px 16px;border:2px solid rgba(255,255,255,0.15);border-radius:10px;font-size:14px;margin-bottom:10px;background:rgba(255,255,255,0.05);color:#fff}
+.login-box input,.login-box select{width:100%;padding:12px 14px;border:2px solid rgba(255,255,255,0.15);border-radius:10px;font-size:14px;margin-bottom:10px;background:rgba(255,255,255,0.05);color:#fff}
 .login-box input::placeholder{color:rgba(255,255,255,0.4)}
-.login-box input:focus{outline:none;border-color:#FFD700}
-.login-box .btn-login{width:100%;padding:13px;background:linear-gradient(135deg,#FFD700,#FFA000);color:#004D40;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
-.login-box .btn-link{background:none;border:none;color:rgba(255,255,255,0.6);font-size:12px;cursor:pointer;margin-top:12px}
+.login-box input:focus,.login-box select:focus{outline:none;border-color:#FFD700}
+.login-box select option{color:#333;background:#fff}
+.btn-login{width:100%;padding:13px;background:linear-gradient(135deg,#FFD700,#FFA000);color:#004D40;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
+.btn-link{background:none;border:none;color:rgba(255,255,255,0.6);font-size:12px;cursor:pointer;margin-top:12px;text-decoration:underline}
 .login-error{color:#FF5252;font-size:12px;margin-top:8px;display:none}
 .app{display:none}
 .header{background:linear-gradient(135deg,#006064,#004D40);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
 .header h1{font-size:17px}
 .logout-btn{background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:11px;cursor:pointer}
-.container{max-width:600px;margin:0 auto;padding:14px}
+.container{max-width:700px;margin:0 auto;padding:14px}
 .card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
 .card h2{font-size:13px;color:#006064;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #E0F2F1}
 .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
 .row label{font-size:12px;color:#555;font-weight:600;min-width:110px}
-input[type="number"],input[type="text"],input[type="email"],select{padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;width:100%;max-width:200px}
-.btn{padding:10px 16px;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+input[type="number"],input[type="text"],input[type="email"],select{padding:9px 11px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px;max-width:200px}
+input:focus,select:focus{outline:none;border-color:#006064}
+.btn{padding:9px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+.btn:active{opacity:.7}
 .btn-primary{background:#006064;color:#fff}
 .btn-gold{background:linear-gradient(135deg,#FFD700,#FFA000);color:#004D40}
+.btn-green{background:#2E7D32;color:#fff}
 .btn-red{background:#D32F2F;color:#fff}
-.btn-sm{padding:7px 12px;font-size:11px}
-.btn-full{width:100%;padding:13px;font-size:14px}
+.btn-wa{background:#25D366;color:#fff}
+.btn-sm{padding:6px 10px;font-size:11px}
+.btn-full{width:100%;padding:12px;font-size:14px}
 .tabs{display:flex;gap:4px;margin-bottom:12px;overflow-x:auto}
 .tab{padding:9px 14px;border:2px solid #e0e0e0;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:#fff;color:#555;white-space:nowrap}
 .tab.active{border-color:#006064;background:#006064;color:#fff}
 .tab-content{display:none}.tab-content.active{display:block}
-.member-item{display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #f0f0f0;font-size:13px}
+.member-item{display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #f0f0f0;font-size:12px}
 .badge{display:inline-block;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600}
 .badge-won{background:#E8F5E9;color:#2E7D32}
 .badge-pending{background:#FFF3E0;color:#E65100}
-.badge-paid{background:#E3F2FD;color:#1565C0}
-.badge-late{background:#FFEBEE;color:#D32F2F}
+.badge-approved{background:#E3F2FD;color:#1565C0}
+.badge-waiting{background:#FCE4EC;color:#C62828}
 .summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:10px 0}
 .summary-card{background:#f5f5f5;border-radius:8px;padding:12px;text-align:center}
 .summary-card .value{font-size:18px;font-weight:700;color:#006064}
@@ -56,10 +61,13 @@ input[type="number"],input[type="text"],input[type="email"],select{padding:10px;
 .history-table{width:100%;font-size:11px;border-collapse:collapse}
 .history-table th{background:#006064;color:#fff;padding:6px}
 .history-table td{padding:6px;border:1px solid #eee;text-align:center}
-.loading{text-align:center;padding:40px;color:#999}
 .msg{padding:10px;border-radius:8px;margin:8px 0;font-size:12px}
 .msg-success{background:#E8F5E9;color:#2E7D32}
 .msg-error{background:#FFEBEE;color:#D32F2F}
+.pool-card{border:2px solid #e0e0e0;border-radius:10px;padding:14px;margin:8px 0;cursor:pointer}
+.pool-card:hover{border-color:#006064}
+.pool-card h3{font-size:14px;color:#006064;margin-bottom:4px}
+.pool-card p{font-size:11px;color:#777}
 </style>
 </head>
 <body>
@@ -72,10 +80,11 @@ input[type="number"],input[type="text"],input[type="email"],select{padding:10px;
 <input type="email" id="loginEmail" placeholder="Email">
 <input type="password" id="loginPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
 <button class="btn-login" onclick="doLogin()">LOGIN</button>
-<button class="btn-link" onclick="toggleRegister()">New member? Register</button>
+<button class="btn-link" onclick="toggleRegister()">New? Register here</button>
 <div id="registerFields" style="display:none;margin-top:12px">
 <input type="text" id="regName" placeholder="Full Name">
 <input type="email" id="regEmail" placeholder="Email">
+<input type="text" id="regPhone" placeholder="Phone (91xxxxxxxxxx)">
 <input type="password" id="regPass" placeholder="Password (min 6 chars)">
 <button class="btn-login" style="background:#4CAF50;color:#fff" onclick="doRegister()">REGISTER</button>
 </div>
@@ -89,24 +98,22 @@ input[type="number"],input[type="text"],input[type="email"],select{padding:10px;
 <h1>Chittly</h1>
 <div><span id="userName" style="font-size:11px;opacity:.7;margin-right:8px"></span><button class="logout-btn" onclick="doLogout()">Logout</button></div>
 </div>
-<div class="container" id="appContainer"></div>
+<div class="container" id="appContainer"><div style="text-align:center;padding:40px;color:#999">Loading...</div></div>
 </div>
 
 <script>
-// Firebase Config
+// Firebase
 firebase.initializeApp({
-    apiKey: "AIzaSyBGeuNGyr5N7xEKr-1XTeFcbeog2H8LZoQ",
-    authDomain: "chittly.firebaseapp.com",
-    projectId: "chittly",
-    storageBucket: "chittly.firebasestorage.app",
-    messagingSenderId: "160161440830",
-    appId: "1:160161440830:web:3d255a5b0fbe19d6f01d6f"
+    apiKey:"AIzaSyBGeuNGyr5N7xEKr-1XTeFcbeog2H8LZoQ",
+    authDomain:"chittly.firebaseapp.com",
+    projectId:"chittly",
+    storageBucket:"chittly.firebasestorage.app",
+    messagingSenderId:"160161440830",
+    appId:"1:160161440830:web:3d255a5b0fbe19d6f01d6f"
 });
-
-const auth = firebase.auth();
-const db = firebase.firestore();
-let currentUser = null;
-let userRole = 'member';
+const auth=firebase.auth();
+const db=firebase.firestore();
+let currentUser=null,userRole='member',userData=null;
 
 // AUTH
 function doLogin(){
@@ -119,276 +126,356 @@ function doLogin(){
 function doRegister(){
     const name=document.getElementById('regName').value.trim();
     const email=document.getElementById('regEmail').value.trim();
+    const phone=document.getElementById('regPhone').value.trim();
     const pass=document.getElementById('regPass').value;
     const err=document.getElementById('loginError');
-    if(!name){err.textContent='Enter your name.';err.style.display='block';return;}
+    if(!name||!email){err.textContent='Enter name and email.';err.style.display='block';return;}
     err.style.display='none';
     auth.createUserWithEmailAndPassword(email,pass).then(cred=>{
-        return db.collection('users').doc(cred.user.uid).set({name,email,role:'member',rating:5,onTime:0,late:0,createdAt:new Date()});
+        return db.collection('users').doc(cred.user.uid).set({name,email,phone,role:'member',rating:5,onTime:0,late:0,agentId:null,createdAt:new Date()});
     }).catch(e=>{err.textContent=e.message;err.style.display='block';});
 }
 function doLogout(){auth.signOut();}
-function toggleRegister(){
-    const el=document.getElementById('registerFields');
-    el.style.display=el.style.display==='none'?'block':'none';
-}
+function toggleRegister(){const el=document.getElementById('registerFields');el.style.display=el.style.display==='none'?'block':'none';}
 
 auth.onAuthStateChanged(async user=>{
     if(user){
         currentUser=user;
-        document.getElementById('loginScreen').style.display='none';
-        document.getElementById('app').style.display='block';
-        // Get user role
         const doc=await db.collection('users').doc(user.uid).get();
         if(doc.exists){
-            userRole=doc.data().role||'member';
-            document.getElementById('userName').textContent=doc.data().name+' ('+userRole+')';
+            userData=doc.data();
+            userRole=userData.role||'member';
         } else {
+            userData={name:user.email,role:'member'};
             userRole='member';
-            document.getElementById('userName').textContent=user.email;
         }
+        document.getElementById('loginScreen').style.display='none';
+        document.getElementById('app').style.display='block';
+        document.getElementById('userName').textContent=(userData.name||user.email)+' ('+userRole+')';
         renderApp();
     } else {
-        currentUser=null;
+        currentUser=null;userData=null;
         document.getElementById('loginScreen').style.display='flex';
         document.getElementById('app').style.display='none';
     }
 });
 
-// RENDER APP BASED ON ROLE
 function renderApp(){
     if(userRole==='admin') renderAdmin();
+    else if(userRole==='agent') renderAgent();
     else renderMember();
 }
 
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // ADMIN VIEW
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 function renderAdmin(){
-    document.getElementById('appContainer').innerHTML=`
-    <div class="tabs">
-        <div class="tab active" onclick="adminTab('setup')">Setup</div>
-        <div class="tab" onclick="adminTab('bid')">Bid</div>
-        <div class="tab" onclick="adminTab('members')">Members</div>
-        <div class="tab" onclick="adminTab('history')">History</div>
-    </div>
-    <div id="adminContent"><div class="loading">Loading...</div></div>`;
-    adminTab('setup');
+    const c=document.getElementById('appContainer');
+    c.innerHTML=`<div class="tabs">
+        <div class="tab active" onclick="aTab(this,'agents')">Agents</div>
+        <div class="tab" onclick="aTab(this,'users')">All Users</div>
+        <div class="tab" onclick="aTab(this,'pools')">All Pools</div>
+        <div class="tab" onclick="aTab(this,'approvals')">Approvals</div>
+        <div class="tab" onclick="aTab(this,'settings')">Settings</div>
+    </div><div id="adminPanel"></div>`;
+    aLoadAgents();
 }
-
-function adminTab(t){
+function aTab(el,t){
     document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
-    event.target.classList.add('active');
-    if(t==='setup') loadSetup();
-    else if(t==='bid') loadBid();
-    else if(t==='members') loadMembers();
-    else if(t==='history') loadHistory();
+    el.classList.add('active');
+    if(t==='agents')aLoadAgents();
+    else if(t==='users')aLoadUsers();
+    else if(t==='pools')aLoadPools();
+    else if(t==='approvals')aLoadApprovals();
+    else if(t==='settings')aLoadSettings();
 }
 
-async function loadSetup(){
-    const doc=await db.collection('config').doc('chit').get();
-    const c=doc.exists?doc.data():{name:'My Chit 2026',numMembers:10,monthlyAmt:5000,commission:5};
-    document.getElementById('adminContent').innerHTML=`
-    <div class="card"><h2>Chit Configuration</h2>
-    <div class="row"><label>Chit Name:</label><input type="text" id="cName" value="${c.name}"></div>
-    <div class="row"><label>Members:</label><input type="number" id="cMembers" value="${c.numMembers}" min="5" max="50" style="max-width:80px"></div>
-    <div class="row"><label>Monthly (Rs):</label><select id="cAmt">${[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,15000,20000].map(v=>`<option value="${v}" ${v==c.monthlyAmt?'selected':''}>Rs ${v.toLocaleString('en-IN')}</option>`).join('')}</select></div>
-    <div class="row"><label>Commission %:</label><input type="number" id="cComm" value="${c.commission}" step="0.5" style="max-width:80px"></div>
-    <button class="btn btn-gold btn-full" onclick="saveSetup()">Save Configuration</button>
-    <div id="setupMsg"></div></div>
-    <div class="card"><h2>Add Member</h2>
-    <div class="row"><input type="text" id="mName" placeholder="Name" style="max-width:130px"><input type="email" id="mEmail" placeholder="Email" style="max-width:150px"><input type="text" id="mPhone" placeholder="Phone (91xxx)" style="max-width:120px"><button class="btn btn-primary btn-sm" onclick="addMember()">+Add</button></div>
-    <div id="membersList"></div></div>`;
-    loadMembersList();
-}
-
-async function saveSetup(){
-    await db.collection('config').doc('chit').set({
-        name:document.getElementById('cName').value,
-        numMembers:parseInt(document.getElementById('cMembers').value),
-        monthlyAmt:parseInt(document.getElementById('cAmt').value),
-        commission:parseFloat(document.getElementById('cComm').value)
-    });
-    document.getElementById('setupMsg').innerHTML='<div class="msg msg-success">Saved!</div>';
-}
-
-async function addMember(){
-    const name=document.getElementById('mName').value.trim();
-    const email=document.getElementById('mEmail').value.trim();
-    const phone=document.getElementById('mPhone').value.trim();
-    if(!name||!email){alert('Enter name and email.');return;}
-    await db.collection('members').add({name,email,phone,won:false,wonMonth:null,rating:5,onTime:0,late:0});
-    document.getElementById('mName').value='';document.getElementById('mEmail').value='';document.getElementById('mPhone').value='';
-    loadMembersList();
-}
-
-async function loadMembersList(){
-    const snap=await db.collection('members').get();
-    let html='';
+async function aLoadAgents(){
+    const snap=await db.collection('users').where('role','==','agent').get();
+    let html='<div class="card"><h2>Agents</h2>';
+    html+='<div class="row"><input type="email" id="newAgentEmail" placeholder="Agent email" style="max-width:200px"><button class="btn btn-primary btn-sm" onclick="aCreateAgent()">Make Agent</button></div>';
+    html+='<p style="font-size:11px;color:#777;margin-bottom:10px">Enter email of a registered user to promote to agent.</p>';
     snap.forEach(doc=>{
-        const m=doc.data();
-        const badge=m.won?'<span class="badge badge-won">Won M'+m.wonMonth+'</span>':'<span class="badge badge-pending">Pending</span>';
-        html+=`<div class="member-item"><div><b>${m.name}</b><br><span style="font-size:10px;color:#777">${m.email}</span></div><div>${badge}<br><span class="stars">${'★'.repeat(Math.round(m.rating||5))}</span></div></div>`;
+        const a=doc.data();
+        const stars='\u2605'.repeat(Math.round(a.rating||5))+'\u2606'.repeat(5-Math.round(a.rating||5));
+        html+=`<div class="member-item"><div><b>${a.name}</b><br><span style="font-size:10px">${a.email} | ${a.phone||''}</span></div><div><span class="stars">${stars}</span> (${Math.round(a.rating||5)}/5)</div></div>`;
     });
-    const el=document.getElementById('membersList');
-    if(el) el.innerHTML=html||'<p style="color:#999;text-align:center;padding:16px">No members yet.</p>';
+    if(snap.empty)html+='<p style="color:#999;text-align:center;padding:16px">No agents yet.</p>';
+    html+='</div>';
+    document.getElementById('adminPanel').innerHTML=html;
 }
 
-async function loadBid(){
-    const config=(await db.collection('config').doc('chit').get()).data()||{numMembers:10,monthlyAmt:5000,commission:5};
-    const bidsSnap=await db.collection('bids').orderBy('month').get();
+async function aCreateAgent(){
+    const email=document.getElementById('newAgentEmail').value.trim();
+    if(!email){alert('Enter agent email.');return;}
+    const snap=await db.collection('users').where('email','==',email).get();
+    if(snap.empty){alert('No user found with that email. They must register first.');return;}
+    const doc=snap.docs[0];
+    await db.collection('users').doc(doc.id).update({role:'agent'});
+    alert(doc.data().name+' is now an Agent!');
+    aLoadAgents();
+}
+
+async function aLoadUsers(){
+    const snap=await db.collection('users').get();
+    let html='<div class="card"><h2>All Registered Users ('+snap.size+')</h2>';
+    html+='<table class="history-table"><thead><tr><th>Name</th><th>Email</th><th>Phone</th><th>Role</th><th>Rating</th></tr></thead><tbody>';
+    snap.forEach(doc=>{
+        const u=doc.data();
+        html+=`<tr><td>${u.name}</td><td style="font-size:10px">${u.email}</td><td>${u.phone||'-'}</td><td><b>${u.role}</b></td><td>${'\u2605'.repeat(Math.round(u.rating||5))}</td></tr>`;
+    });
+    html+='</tbody></table></div>';
+    document.getElementById('adminPanel').innerHTML=html;
+}
+
+async function aLoadPools(){
+    const snap=await db.collection('pools').get();
+    let html='<div class="card"><h2>All Chit Pools</h2>';
+    snap.forEach(doc=>{
+        const p=doc.data();
+        const status=p.approved?'<span class="badge badge-approved">Approved</span>':'<span class="badge badge-waiting">Pending Approval</span>';
+        html+=`<div class="pool-card"><h3>${p.name} ${status}</h3><p>Agent: ${p.agentName} | Members: ${p.numMembers} | Monthly: Rs ${(p.monthlyAmt||0).toLocaleString('en-IN')} | Commission: ${p.commission}%</p></div>`;
+    });
+    if(snap.empty)html+='<p style="color:#999;text-align:center;padding:16px">No pools created yet.</p>';
+    html+='</div>';
+    document.getElementById('adminPanel').innerHTML=html;
+}
+
+async function aLoadApprovals(){
+    const snap=await db.collection('pools').where('approved','==',false).get();
+    let html='<div class="card"><h2>Pending Approvals</h2>';
+    snap.forEach(doc=>{
+        const p=doc.data();
+        html+=`<div class="pool-card"><h3>${p.name}</h3><p>Agent: ${p.agentName} | Members: ${p.numMembers} | Monthly: Rs ${(p.monthlyAmt||0).toLocaleString('en-IN')}</p><button class="btn btn-green btn-sm" onclick="aApprovePool('${doc.id}')">Approve</button> <button class="btn btn-red btn-sm" onclick="aRejectPool('${doc.id}')">Reject</button></div>`;
+    });
+    if(snap.empty)html+='<p style="color:#999;text-align:center;padding:16px">No pending approvals.</p>';
+    html+='</div>';
+    document.getElementById('adminPanel').innerHTML=html;
+}
+
+async function aApprovePool(id){await db.collection('pools').doc(id).update({approved:true});alert('Pool approved!');aLoadApprovals();}
+async function aRejectPool(id){if(confirm('Reject this pool?')){await db.collection('pools').doc(id).delete();alert('Pool rejected.');aLoadApprovals();}}
+
+async function aLoadSettings(){
+    const doc=await db.collection('config').doc('global').get();
+    const c=doc.exists?doc.data():{adminCommission:2,agentCommission:3};
+    let html=`<div class="card"><h2>Global Settings</h2>
+    <div class="row"><label>Admin Commission %:</label><input type="number" id="sAdminComm" value="${c.adminCommission}" step="0.5" style="max-width:80px"></div>
+    <div class="row"><label>Agent Commission %:</label><input type="number" id="sAgentComm" value="${c.agentCommission}" step="0.5" style="max-width:80px"></div>
+    <p style="font-size:11px;color:#777">Total commission = Admin% + Agent%. Agent% may vary by agent rating.</p>
+    <button class="btn btn-gold btn-full" onclick="aSaveSettings()">Save Settings</button></div>`;
+    document.getElementById('adminPanel').innerHTML=html;
+}
+async function aSaveSettings(){
+    await db.collection('config').doc('global').set({
+        adminCommission:parseFloat(document.getElementById('sAdminComm').value),
+        agentCommission:parseFloat(document.getElementById('sAgentComm').value)
+    });
+    alert('Settings saved!');
+}
+
+// ═══════════════════════════════════════════════════════════
+// AGENT VIEW
+// ═══════════════════════════════════════════════════════════
+function renderAgent(){
+    const c=document.getElementById('appContainer');
+    c.innerHTML=`<div class="tabs">
+        <div class="tab active" onclick="gTab(this,'pools')">My Pools</div>
+        <div class="tab" onclick="gTab(this,'create')">Create Pool</div>
+        <div class="tab" onclick="gTab(this,'members')">My Members</div>
+    </div><div id="agentPanel"></div>`;
+    gLoadPools();
+}
+function gTab(el,t){
+    document.querySelectorAll('.tab').forEach(e=>e.classList.remove('active'));
+    el.classList.add('active');
+    if(t==='pools')gLoadPools();
+    else if(t==='create')gCreatePool();
+    else if(t==='members')gLoadMembers();
+}
+
+async function gLoadPools(){
+    const snap=await db.collection('pools').where('agentId','==',currentUser.uid).get();
+    let html='<div class="card"><h2>My Chit Pools</h2>';
+    snap.forEach(doc=>{
+        const p=doc.data();
+        const status=p.approved?'<span class="badge badge-approved">Active</span>':'<span class="badge badge-waiting">Awaiting Approval</span>';
+        html+=`<div class="pool-card" onclick="gOpenPool('${doc.id}')"><h3>${p.name} ${status}</h3><p>Members: ${p.numMembers} | Monthly: Rs ${(p.monthlyAmt||0).toLocaleString('en-IN')} | Bids done: ${p.bidsCompleted||0}</p></div>`;
+    });
+    if(snap.empty)html+='<p style="color:#999;text-align:center;padding:16px">No pools yet. Create one!</p>';
+    html+='</div>';
+    document.getElementById('agentPanel').innerHTML=html;
+}
+
+function gCreatePool(){
+    let html=`<div class="card"><h2>Create New Chit Pool</h2>
+    <div class="row"><label>Pool Name:</label><input type="text" id="pName" placeholder="e.g. Gold Chit 2026"></div>
+    <div class="row"><label>Members:</label><input type="number" id="pMembers" value="10" min="5" max="50" style="max-width:80px"></div>
+    <div class="row"><label>Monthly (Rs):</label><select id="pAmt">${[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,15000,20000].map(v=>'<option value="'+v+'">Rs '+v.toLocaleString('en-IN')+'</option>').join('')}</select></div>
+    <div class="row"><label>Total Commission %:</label><input type="number" id="pComm" value="5" step="0.5" style="max-width:80px"></div>
+    <button class="btn btn-gold btn-full" onclick="gSubmitPool()">Submit for Admin Approval</button>
+    <div id="poolMsg"></div></div>`;
+    document.getElementById('agentPanel').innerHTML=html;
+}
+
+async function gSubmitPool(){
+    const name=document.getElementById('pName').value.trim();
+    if(!name){alert('Enter pool name.');return;}
+    await db.collection('pools').add({
+        name,
+        agentId:currentUser.uid,
+        agentName:userData.name,
+        numMembers:parseInt(document.getElementById('pMembers').value),
+        monthlyAmt:parseInt(document.getElementById('pAmt').value),
+        commission:parseFloat(document.getElementById('pComm').value),
+        approved:false,
+        bidsCompleted:0,
+        members:[],
+        createdAt:new Date()
+    });
+    document.getElementById('poolMsg').innerHTML='<div class="msg msg-success">Pool submitted! Waiting for admin approval.</div>';
+}
+
+async function gOpenPool(poolId){
+    const doc=await db.collection('pools').doc(poolId).get();
+    const p=doc.data();
+    if(!p.approved){alert('This pool is not yet approved by admin.');return;}
+
+    const bidsSnap=await db.collection('pools').doc(poolId).collection('bids').orderBy('month').get();
+    const membersSnap=await db.collection('pools').doc(poolId).collection('members').get();
     const currentMonth=bidsSnap.size+1;
-    const pool=config.numMembers*config.monthlyAmt;
-    const comm=pool*config.commission/100;
+    const pool=p.numMembers*p.monthlyAmt;
+    const comm=pool*p.commission/100;
 
-    const membersSnap=await db.collection('members').where('won','==',false).get();
+    let eligible=[];
+    membersSnap.forEach(d=>{if(!d.data().won)eligible.push({id:d.id,...d.data()});});
+
     let opts='<option value="">-- Select Winner --</option>';
-    membersSnap.forEach(doc=>{opts+=`<option value="${doc.id}">${doc.data().name}</option>`;});
+    eligible.forEach(m=>{opts+=`<option value="${m.id}">${m.name}</option>`;});
 
-    document.getElementById('adminContent').innerHTML=`
-    <div class="card"><h2>Month ${currentMonth} Bid</h2>
+    let html=`<div class="card"><h2>${p.name} — Month ${currentMonth}</h2>
     <div class="summary-grid">
         <div class="summary-card"><div class="value">Rs ${pool.toLocaleString('en-IN')}</div><div class="label">Pool</div></div>
         <div class="summary-card"><div class="value">Rs ${comm.toLocaleString('en-IN')}</div><div class="label">Commission</div></div>
+        <div class="summary-card"><div class="value">${membersSnap.size}</div><div class="label">Members</div></div>
+        <div class="summary-card"><div class="value">${eligible.length}</div><div class="label">Eligible</div></div>
     </div>
     <div class="row"><label>Winner:</label><select id="bidWinner">${opts}</select></div>
     <div class="row"><label>Bid Amount:</label><input type="number" id="bidAmt" placeholder="Rs" style="max-width:140px"></div>
-    <button class="btn btn-gold btn-full" onclick="processBid(${currentMonth},${pool},${comm})">Process Bid</button>
+    <button class="btn btn-gold btn-full" onclick="gProcessBid('${poolId}',${currentMonth},${pool},${comm},${p.numMembers})">Process Bid</button>
     <div id="bidResult"></div></div>`;
+
+    // Members list
+    html+=`<div class="card"><h2>Pool Members</h2>`;
+    html+=`<div class="row"><input type="text" id="addMName" placeholder="Name" style="max-width:120px"><input type="email" id="addMEmail" placeholder="Email" style="max-width:140px"><input type="text" id="addMPhone" placeholder="Phone" style="max-width:110px"><button class="btn btn-primary btn-sm" onclick="gAddMember('${poolId}')">+Add</button></div>`;
+    membersSnap.forEach(d=>{
+        const m=d.data();
+        const badge=m.won?'<span class="badge badge-won">Won M'+m.wonMonth+'</span>':'<span class="badge badge-pending">Pending</span>';
+        html+=`<div class="member-item"><div><b>${m.name}</b> ${badge}<br><span style="font-size:10px">${m.email||''} | ${m.phone||''}</span></div><div><button class="btn btn-wa btn-sm" onclick="gSendWA('${m.name}','${m.phone}',${p.monthlyAmt},${currentMonth})">WA</button></div></div>`;
+    });
+    html+=`</div>`;
+
+    // History
+    html+=`<div class="card"><h2>Bid History</h2><table class="history-table"><thead><tr><th>M</th><th>Winner</th><th>Bid</th><th>Dividend</th><th>Net</th></tr></thead><tbody>`;
+    bidsSnap.forEach(d=>{const b=d.data();html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td>Rs ${b.dividend.toLocaleString('en-IN')}</td><td>Rs ${b.netPayment.toLocaleString('en-IN')}</td></tr>`;});
+    html+=`</tbody></table></div>`;
+
+    html+=`<button class="btn btn-primary" onclick="gLoadPools()" style="margin-top:8px">&larr; Back to Pools</button>`;
+    document.getElementById('agentPanel').innerHTML=html;
 }
 
-async function processBid(month,pool,comm){
+async function gAddMember(poolId){
+    const name=document.getElementById('addMName').value.trim();
+    const email=document.getElementById('addMEmail').value.trim();
+    const phone=document.getElementById('addMPhone').value.trim();
+    if(!name){alert('Enter name.');return;}
+    await db.collection('pools').doc(poolId).collection('members').add({name,email,phone,won:false,wonMonth:null,rating:5,onTime:0,late:0});
+    gOpenPool(poolId);
+}
+
+async function gProcessBid(poolId,month,pool,comm,numMembers){
     const winnerId=document.getElementById('bidWinner').value;
     const bidAmt=parseInt(document.getElementById('bidAmt').value);
     if(!winnerId){alert('Select winner.');return;}
-    if(!bidAmt||bidAmt<=0){alert('Enter bid amount.');return;}
-    if(bidAmt>pool-comm){alert('Bid cannot exceed pool minus commission.');return;}
+    if(!bidAmt||bidAmt<=0||bidAmt>pool-comm){alert('Invalid bid amount. Max: Rs '+(pool-comm));return;}
 
-    const config=(await db.collection('config').doc('chit').get()).data();
-    const dividend=Math.round((pool-bidAmt-comm)/config.numMembers);
-    const netPayment=config.monthlyAmt-dividend;
-
-    const winnerDoc=await db.collection('members').doc(winnerId).get();
+    const dividend=Math.round((pool-bidAmt-comm)/numMembers);
+    const netPayment=Math.round(pool/numMembers)-dividend;
+    const winnerDoc=await db.collection('pools').doc(poolId).collection('members').doc(winnerId).get();
     const winnerName=winnerDoc.data().name;
 
-    await db.collection('bids').add({month,winner:winnerName,winnerId,bidAmt,pool,commission:comm,dividend,netPayment,date:new Date()});
-    await db.collection('members').doc(winnerId).update({won:true,wonMonth:month});
+    await db.collection('pools').doc(poolId).collection('bids').add({month,winner:winnerName,winnerId,bidAmt,pool,commission:comm,dividend,netPayment,date:new Date()});
+    await db.collection('pools').doc(poolId).collection('members').doc(winnerId).update({won:true,wonMonth:month});
+    await db.collection('pools').doc(poolId).update({bidsCompleted:month});
 
-    document.getElementById('bidResult').innerHTML=`<div class="bid-result">
-        <h3>Month ${month} Done!</h3>
-        <p><b>Winner:</b> ${winnerName}</p>
-        <p><b>Bid:</b> Rs ${bidAmt.toLocaleString('en-IN')}</p>
-        <p><b>Dividend/member:</b> Rs ${dividend.toLocaleString('en-IN')}</p>
-        <p><b>Net payment:</b> Rs ${netPayment.toLocaleString('en-IN')}</p>
-    </div>`;
+    document.getElementById('bidResult').innerHTML=`<div class="bid-result"><h3>Month ${month} Done!</h3><p><b>Winner:</b> ${winnerName} | <b>Bid:</b> Rs ${bidAmt.toLocaleString('en-IN')}</p><p><b>Dividend:</b> Rs ${dividend.toLocaleString('en-IN')} | <b>Net payment:</b> Rs ${netPayment.toLocaleString('en-IN')}</p></div>`;
 }
 
-async function loadMembers(){
-    const snap=await db.collection('members').get();
-    const config=(await db.collection('config').doc('chit').get()).data()||{monthlyAmt:5000};
-    const bidsSnap=await db.collection('bids').get();
-    const currentMonth=bidsSnap.size+1;
-    let html='<div class="card"><h2>All Members</h2>';
-    html+='<button class="btn btn-full" style="margin-bottom:12px;background:#25D366;color:#fff" onclick="sendAllReminders()">\ud83d\udcf1 Send All Reminders (WhatsApp)</button>';
-    snap.forEach(doc=>{
-        const m=doc.data();
-        const stars='\u2605'.repeat(Math.round(m.rating||5))+'\u2606'.repeat(5-Math.round(m.rating||5));
-        const badge=m.won?`<span class="badge badge-won">Won M${m.wonMonth}</span>`:'<span class="badge badge-pending">Pending</span>';
-        const phone=m.phone||'';
-        html+=`<div class="member-item"><div><b>${m.name}</b> ${badge}<br><span style="font-size:10px">${m.email} | ${phone||'No phone'}</span></div><div style="text-align:right"><span class="stars">${stars}</span><br><button class="btn btn-sm btn-primary" onclick="markPayment('${doc.id}','ontime')">\u2713</button> <button class="btn btn-sm btn-red" onclick="markPayment('${doc.id}','late')">Late</button> <button class="btn btn-sm" style="background:#25D366;color:#fff" onclick="sendReminder('${m.name}','${phone}',${config.monthlyAmt},${currentMonth})">WA</button></div></div>`;
-    });
-    html+='</div>';
-    document.getElementById('adminContent').innerHTML=html;
-}
-
-function sendReminder(name,phone,amount,month){
-    if(!phone){alert('No phone number for '+name);return;}
+function gSendWA(name,phone,amount,month){
+    if(!phone){alert('No phone for '+name);return;}
     const p=phone.replace(/[^0-9]/g,'');
-    const msg=encodeURIComponent('Hi '+name+',\n\nYour Chittly payment of Rs '+amount.toLocaleString('en-IN')+' for Month '+month+' is due.\n\nPlease pay at the earliest.\n\n- Chittly Admin');
+    const msg=encodeURIComponent('Hi '+name+',\n\nYour Chittly payment of Rs '+amount.toLocaleString('en-IN')+' for Month '+month+' is due.\n\nPlease pay at the earliest.\n\n- Chittly');
     window.open('https://wa.me/'+p+'?text='+msg,'_blank');
 }
 
-async function sendAllReminders(){
-    const snap=await db.collection('members').get();
-    const config=(await db.collection('config').doc('chit').get()).data()||{monthlyAmt:5000};
-    const month=(await db.collection('bids').get()).size+1;
-    let count=0;
-    snap.forEach(doc=>{
-        const m=doc.data();
-        if(m.phone){count++;setTimeout(()=>{sendReminder(m.name,m.phone,config.monthlyAmt,month);},count*2000);}
-    });
-    if(count===0)alert('No members have phone numbers.');
-    else alert(count+' WhatsApp windows will open (2s apart). Send each manually.');
+async function gLoadMembers(){
+    const poolsSnap=await db.collection('pools').where('agentId','==',currentUser.uid).get();
+    let html='<div class="card"><h2>All My Members (across pools)</h2>';
+    for(const poolDoc of poolsSnap.docs){
+        const p=poolDoc.data();
+        const membersSnap=await db.collection('pools').doc(poolDoc.id).collection('members').get();
+        html+=`<h3 style="margin:10px 0 6px;font-size:12px;color:#006064">${p.name} (${membersSnap.size} members)</h3>`;
+        membersSnap.forEach(d=>{
+            const m=d.data();
+            html+=`<div class="member-item"><div><b>${m.name}</b><br><span style="font-size:10px">${m.phone||''}</span></div><div>${m.won?'<span class="badge badge-won">Won</span>':'<span class="badge badge-pending">Pending</span>'}</div></div>`;
+        });
+    }
+    html+='</div>';
+    document.getElementById('agentPanel').innerHTML=html;
 }
 
-async function markPayment(id,status){
-    const ref=db.collection('members').doc(id);
-    const doc=await ref.get();
-    const m=doc.data();
-    let onTime=m.onTime||0, late=m.late||0;
-    if(status==='ontime') onTime++; else late++;
-    const total=onTime+late;
-    const rating=Math.max(1,Math.min(5,Math.round((onTime/total)*5)));
-    await ref.update({onTime,late,rating});
-    loadMembers();
-}
-
-async function loadHistory(){
-    const snap=await db.collection('bids').orderBy('month').get();
-    let html='<div class="card"><h2>Bid History</h2><table class="history-table"><thead><tr><th>M</th><th>Winner</th><th>Bid</th><th>Dividend</th><th>Net</th></tr></thead><tbody>';
-    snap.forEach(doc=>{
-        const b=doc.data();
-        html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td>Rs ${b.dividend.toLocaleString('en-IN')}</td><td>Rs ${b.netPayment.toLocaleString('en-IN')}</td></tr>`;
-    });
-    html+='</tbody></table></div>';
-    document.getElementById('adminContent').innerHTML=html||'<div class="card"><p>No bids yet.</p></div>';
-}
-
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 // MEMBER VIEW
-// ═══════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
 async function renderMember(){
-    const container=document.getElementById('appContainer');
-    container.innerHTML='<div class="loading">Loading your data...</div>';
+    const c=document.getElementById('appContainer');
+    c.innerHTML='<div style="text-align:center;padding:40px;color:#999">Loading your data...</div>';
 
-    const config=(await db.collection('config').doc('chit').get()).data()||{name:'Chit',monthlyAmt:5000};
-    const bidsSnap=await db.collection('bids').orderBy('month').get();
-    const membersSnap=await db.collection('members').where('email','==',currentUser.email).get();
+    // Find pools where this member exists
+    const poolsSnap=await db.collection('pools').get();
+    let myPools=[];
+    for(const poolDoc of poolsSnap.docs){
+        const membersSnap=await db.collection('pools').doc(poolDoc.id).collection('members').where('email','==',currentUser.email).get();
+        if(!membersSnap.empty){
+            const memberData=membersSnap.docs[0].data();
+            myPools.push({poolId:poolDoc.id,pool:poolDoc.data(),member:memberData});
+        }
+    }
 
-    let myData=null;
-    membersSnap.forEach(doc=>{myData={id:doc.id,...doc.data()};});
-
-    if(!myData){
-        container.innerHTML='<div class="card"><h2>Welcome!</h2><p>Your account is registered but not yet added to a chit by the admin. Please contact the organizer.</p></div>';
+    if(myPools.length===0){
+        c.innerHTML='<div class="card"><h2>Welcome, '+userData.name+'!</h2><p>You are registered but not yet added to any chit pool. Your agent will add you soon.</p></div>';
         return;
     }
 
-    const totalMonths=bidsSnap.size;
-    const outstanding=(totalMonths)*config.monthlyAmt;
-    const stars='★'.repeat(Math.round(myData.rating||5))+'☆'.repeat(5-Math.round(myData.rating||5));
+    let html='';
+    for(const {poolId,pool,member} of myPools){
+        const bidsSnap=await db.collection('pools').doc(poolId).collection('bids').orderBy('month').get();
+        const stars='\u2605'.repeat(Math.round(member.rating||5))+'\u2606'.repeat(5-Math.round(member.rating||5));
 
-    let html=`<div class="card"><h2>${config.name}</h2>
-    <div class="summary-grid">
-        <div class="summary-card"><div class="value">Rs ${config.monthlyAmt.toLocaleString('en-IN')}</div><div class="label">Monthly</div></div>
-        <div class="summary-card"><div class="value">${totalMonths}</div><div class="label">Months Done</div></div>
-    </div></div>`;
+        html+=`<div class="card"><h2>${pool.name}</h2>
+        <div class="summary-grid">
+            <div class="summary-card"><div class="value">Rs ${pool.monthlyAmt.toLocaleString('en-IN')}</div><div class="label">Monthly</div></div>
+            <div class="summary-card"><div class="value">${bidsSnap.size}/${pool.numMembers}</div><div class="label">Months Done</div></div>
+        </div>
+        <p><b>Status:</b> ${member.won?'<span class="badge badge-won">Won Month '+member.wonMonth+'</span>':'<span class="badge badge-pending">Not yet won</span>'}</p>
+        <p><b>Rating:</b> <span class="stars">${stars}</span></p>
+        <p><b>Agent:</b> ${pool.agentName}</p></div>`;
 
-    html+=`<div class="card"><h2>Your Status</h2>
-    <p><b>Name:</b> ${myData.name}</p>
-    <p><b>Status:</b> ${myData.won?'<span class="badge badge-won">Won Month '+myData.wonMonth+'</span>':'<span class="badge badge-pending">Not yet won</span>'}</p>
-    <p><b>Rating:</b> <span class="stars">${stars}</span> (${Math.round(myData.rating||5)}/5)</p>
-    <p><b>On-time payments:</b> ${myData.onTime||0} | <b>Late:</b> ${myData.late||0}</p>
-    </div>`;
-
-    // Recent bids
-    html+=`<div class="card"><h2>Recent Bids</h2><table class="history-table"><thead><tr><th>M</th><th>Winner</th><th>Bid</th><th>Your Payment</th></tr></thead><tbody>`;
-    bidsSnap.forEach(doc=>{
-        const b=doc.data();
-        html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td>Rs ${b.netPayment.toLocaleString('en-IN')}</td></tr>`;
-    });
-    html+=`</tbody></table></div>`;
-
-    container.innerHTML=html;
+        html+=`<div class="card"><h2>Bid History</h2><table class="history-table"><thead><tr><th>M</th><th>Winner</th><th>Your Payment</th></tr></thead><tbody>`;
+        bidsSnap.forEach(d=>{const b=d.data();html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>Rs ${b.netPayment.toLocaleString('en-IN')}</td></tr>`;});
+        html+=`</tbody></table></div>`;
+    }
+    c.innerHTML=html;
 }
 </script>
 </body>
