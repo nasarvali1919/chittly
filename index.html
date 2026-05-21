@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -696,4 +697,701 @@ async function loadMyStatus(){
 }
 </script>
 </body>
+=======
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#006064">
+<title>Chittly v2 — Smart Chit Fund Manager</title>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#E0F2F1;color:#333;font-size:14px;min-height:100vh}
+.login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;background:linear-gradient(135deg,#006064,#004D40)}
+.login-box{background:rgba(255,255,255,0.06);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px 28px;max-width:360px;width:100%;text-align:center}
+.login-box h1{font-size:28px;color:#fff;margin-bottom:4px}
+.login-box .tagline{color:rgba(255,255,255,0.6);font-size:12px;margin-bottom:20px}
+.login-box input{width:100%;padding:12px 14px;border:2px solid rgba(255,255,255,0.15);border-radius:10px;font-size:14px;margin-bottom:10px;background:rgba(255,255,255,0.05);color:#fff}
+.login-box input::placeholder{color:rgba(255,255,255,0.4)}
+.login-box input:focus{outline:none;border-color:#FFD700}
+.login-box .btn-login{width:100%;padding:13px;background:linear-gradient(135deg,#FFD700,#FFA000);color:#004D40;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px}
+.login-box .btn-link{background:none;border:none;color:rgba(255,255,255,0.6);font-size:12px;cursor:pointer;margin-top:10px;text-decoration:underline}
+.login-error{color:#FF5252;font-size:12px;margin-top:8px;display:none}
+.app{display:none}
+.header{background:linear-gradient(135deg,#006064,#004D40);color:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.header h1{font-size:17px}
+.header-right{display:flex;align-items:center;gap:8px}
+.role-badge{background:rgba(255,215,0,0.2);color:#FFD700;padding:3px 8px;border-radius:10px;font-size:10px;font-weight:600}
+.logout-btn{background:rgba(255,255,255,0.15);color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:10px;cursor:pointer}
+.container{max-width:650px;margin:0 auto;padding:14px}
+.card{background:#fff;border-radius:12px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,.05)}
+.card h2{font-size:12px;color:#006064;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;padding-bottom:6px;border-bottom:2px solid #E0F2F1}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:8px}
+.row label{font-size:12px;color:#555;font-weight:600;min-width:100px}
+input[type="number"],input[type="text"],input[type="email"],select{padding:9px 11px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px;max-width:200px;width:100%}
+input:focus,select:focus{outline:none;border-color:#006064}
+.btn{padding:9px 14px;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer}
+.btn:active{opacity:.7}
+.btn-primary{background:#006064;color:#fff}
+.btn-gold{background:linear-gradient(135deg,#FFD700,#FFA000);color:#004D40}
+.btn-green{background:#2E7D32;color:#fff}
+.btn-red{background:#D32F2F;color:#fff}
+.btn-wa{background:#25D366;color:#fff}
+.btn-sm{padding:6px 10px;font-size:11px}
+.btn-full{width:100%;padding:12px;font-size:14px}
+.tabs{display:flex;gap:3px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
+.tab{padding:8px 12px;border:2px solid #e0e0e0;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;background:#fff;color:#555;white-space:nowrap}
+.tab.active{border-color:#006064;background:#006064;color:#fff}
+.tc{display:none}.tc.active{display:block}
+.item{display:flex;justify-content:space-between;align-items:center;padding:10px;border-bottom:1px solid #f0f0f0;font-size:12px}
+.item:last-child{border-bottom:none}
+.badge{display:inline-block;padding:2px 7px;border-radius:10px;font-size:9px;font-weight:600}
+.b-won{background:#E8F5E9;color:#2E7D32}
+.b-pending{background:#FFF3E0;color:#E65100}
+.b-approved{background:#E3F2FD;color:#1565C0}
+.b-waiting{background:#FCE4EC;color:#C62828}
+.b-agent{background:#EDE7F6;color:#6A1B9A}
+.stars{color:#FFD700;font-size:11px}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.sc{background:#f5f5f5;border-radius:8px;padding:10px;text-align:center}
+.sc .v{font-size:18px;font-weight:700;color:#006064}
+.sc .l{font-size:9px;color:#777;margin-top:2px}
+.lottery-box{text-align:center;padding:20px;background:linear-gradient(135deg,#006064,#004D40);border-radius:12px;color:#fff;margin:12px 0}
+.lottery-box h3{font-size:16px;margin-bottom:12px}
+.lottery-spinner{font-size:28px;font-weight:700;color:#FFD700;min-height:40px;margin:12px 0}
+.lottery-btn{background:#FFD700;color:#004D40;border:none;padding:14px 30px;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer}
+.lottery-btn:active{opacity:.7}
+.lottery-btn:disabled{opacity:.5;cursor:not-allowed}
+.msg{padding:8px;border-radius:6px;margin:6px 0;font-size:11px}
+.msg-ok{background:#E8F5E9;color:#2E7D32}
+.msg-err{background:#FFEBEE;color:#D32F2F}
+.tbl{width:100%;font-size:11px;border-collapse:collapse}
+.tbl th{background:#006064;color:#fff;padding:6px;font-size:10px}
+.tbl td{padding:5px;border:1px solid #eee;text-align:center}
+.note{font-size:10px;color:#999;margin-top:4px;font-style:italic}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="loginScreen" class="login-screen">
+<div class="login-box">
+<h1>Chittly</h1>
+<p class="tagline">Smart Chit Fund Manager v2</p>
+<input type="email" id="loginEmail" placeholder="Email">
+<input type="password" id="loginPass" placeholder="Password" onkeydown="if(event.key==='Enter')doLogin()">
+<button class="btn-login" onclick="doLogin()">LOGIN</button>
+<button class="btn-link" onclick="toggleReg()">New? Register here</button>
+<div id="regFields" style="display:none;margin-top:12px">
+<input type="text" id="regName" placeholder="Full Name">
+<input type="email" id="regEmail" placeholder="Email">
+<input type="text" id="regPhone" placeholder="Phone (91xxxxxxxxxx)">
+<input type="password" id="regPass" placeholder="Password (min 6)">
+<button class="btn-login" style="background:#4CAF50;color:#fff" onclick="doRegister()">REGISTER</button>
+</div>
+<p class="login-error" id="loginError"></p>
+</div>
+</div>
+
+<!-- APP SHELL -->
+<div id="app" class="app">
+<div class="header">
+<h1>Chittly</h1>
+<div class="header-right">
+<span id="userInfo" style="font-size:10px;opacity:.7"></span>
+<span class="role-badge" id="roleBadge"></span>
+<button class="logout-btn" onclick="doLogout()">Logout</button>
+</div>
+</div>
+<div class="container" id="mainContainer">
+<div style="text-align:center;padding:40px;color:#999">Loading...</div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════════════════════
+firebase.initializeApp({
+    apiKey:"AIzaSyBGeuNGyr5N7xEKr-1XTeFcbeog2H8LZoQ",
+    authDomain:"chittly.firebaseapp.com",
+    projectId:"chittly",
+    storageBucket:"chittly.firebasestorage.app",
+    messagingSenderId:"160161440830",
+    appId:"1:160161440830:web:3d255a5b0fbe19d6f01d6f"
+});
+const auth=firebase.auth();
+const db=firebase.firestore();
+let CU=null,UR='member',UD={};
+
+// ═══════════════════════════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════════════════════════
+function doLogin(){
+    const e=document.getElementById('loginEmail').value.trim();
+    const p=document.getElementById('loginPass').value;
+    const err=document.getElementById('loginError');
+    err.style.display='none';
+    auth.signInWithEmailAndPassword(e,p).catch(x=>{err.textContent=x.message;err.style.display='block';});
+}
+function doRegister(){
+    const name=document.getElementById('regName').value.trim();
+    const email=document.getElementById('regEmail').value.trim();
+    const phone=document.getElementById('regPhone').value.trim();
+    const pass=document.getElementById('regPass').value;
+    const err=document.getElementById('loginError');
+    if(!name||!email){err.textContent='Name and email required.';err.style.display='block';return;}
+    err.style.display='none';
+    auth.createUserWithEmailAndPassword(email,pass).then(c=>{
+        return db.collection('users').doc(c.user.uid).set({name,email,phone,role:'member',rating:5,onTime:0,late:0,agentId:null,createdAt:new Date()});
+    }).catch(x=>{err.textContent=x.message;err.style.display='block';});
+}
+function doLogout(){auth.signOut();}
+function toggleReg(){const el=document.getElementById('regFields');el.style.display=el.style.display==='none'?'block':'none';}
+
+auth.onAuthStateChanged(async u=>{
+    if(u){
+        CU=u;
+        const doc=await db.collection('users').doc(u.uid).get();
+        if(doc.exists){UD=doc.data();UR=UD.role||'member';}
+        else{UD={name:u.email,role:'member'};UR='member';}
+        document.getElementById('loginScreen').style.display='none';
+        document.getElementById('app').style.display='block';
+        document.getElementById('userInfo').textContent=UD.name;
+        document.getElementById('roleBadge').textContent=UR.toUpperCase();
+        renderDashboard();
+    }else{
+        CU=null;UR='member';UD={};
+        document.getElementById('loginScreen').style.display='flex';
+        document.getElementById('app').style.display='none';
+    }
+});
+
+// ═══════════════════════════════════════════════════════════
+// RENDER BASED ON ROLE
+// ═══════════════════════════════════════════════════════════
+function renderDashboard(){
+    if(UR==='admin') renderAdmin();
+    else if(UR==='agent') renderAgent();
+    else renderMember();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ADMIN VIEW
+// ═══════════════════════════════════════════════════════════
+async function renderAdmin(){
+    const mc=document.getElementById('mainContainer');
+    mc.innerHTML=`<div class="tabs">
+        <div class="tab active" onclick="aTab(this,'a-users')">Users</div>
+        <div class="tab" onclick="aTab(this,'a-agents')">Agents</div>
+        <div class="tab" onclick="aTab(this,'a-pools')">Pools</div>
+        <div class="tab" onclick="aTab(this,'a-approve')">Approvals</div>
+    </div>
+    <div id="a-users" class="tc active"></div>
+    <div id="a-agents" class="tc"></div>
+    <div id="a-pools" class="tc"></div>
+    <div id="a-approve" class="tc"></div>`;
+    loadAdminUsers();
+}
+function aTab(el,id){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(id).classList.add('active');
+    if(id==='a-users')loadAdminUsers();
+    if(id==='a-agents')loadAdminAgents();
+    if(id==='a-pools')loadAdminPools();
+    if(id==='a-approve')loadAdminApprovals();
+}
+
+async function loadAdminUsers(){
+    const snap=await db.collection('users').get();
+    let html='<div class="card"><h2>All Registered Users</h2>';
+    snap.forEach(doc=>{
+        const u=doc.data();
+        const rb=u.role==='admin'?'<span class="badge b-approved">Admin</span>':u.role==='agent'?'<span class="badge b-agent">Agent</span>':'<span class="badge b-pending">Member</span>';
+        html+=`<div class="item"><div><b>${u.name}</b><br><span style="font-size:10px;color:#777">${u.email} | ${u.phone||'—'}</span></div><div>${rb}<br><select style="font-size:10px;padding:2px;margin-top:4px" onchange="changeRole('${doc.id}',this.value)"><option value="member" ${u.role==='member'?'selected':''}>Member</option><option value="agent" ${u.role==='agent'?'selected':''}>Agent</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select></div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('a-users').innerHTML=html;
+}
+
+async function changeRole(uid,role){
+    await db.collection('users').doc(uid).update({role});
+    loadAdminUsers();
+}
+
+async function loadAdminAgents(){
+    const snap=await db.collection('users').where('role','==','agent').get();
+    let html='<div class="card"><h2>Agents</h2>';
+    if(snap.empty){html+='<p class="note">No agents yet. Promote users from Users tab.</p>';}
+    snap.forEach(doc=>{
+        const a=doc.data();
+        const stars='\u2605'.repeat(Math.round(a.rating||5))+'\u2606'.repeat(5-Math.round(a.rating||5));
+        html+=`<div class="item"><div><b>${a.name}</b><br><span style="font-size:10px">${a.email}</span></div><div><span class="stars">${stars}</span> (${a.rating||5}/5)<br><span style="font-size:10px">Commission: ${Math.max(1,5-Math.round(a.rating||5))}% Admin / ${Math.min(4,Math.round(a.rating||5))}% Agent</span></div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('a-agents').innerHTML=html;
+}
+
+async function loadAdminPools(){
+    const snap=await db.collection('pools').get();
+    let html='<div class="card"><h2>All Chit Pools</h2>';
+    if(snap.empty){html+='<p class="note">No pools created yet.</p>';}
+    snap.forEach(doc=>{
+        const p=doc.data();
+        const status=p.approved?'<span class="badge b-approved">Approved</span>':'<span class="badge b-waiting">Pending</span>';
+        html+=`<div class="item"><div><b>${p.name}</b> ${status}<br><span style="font-size:10px">Agent: ${p.agentName} | ${p.type} | Rs ${p.monthlyAmt} x ${p.numMembers} members</span></div><div><span style="font-size:10px">Month ${p.currentMonth||0}/${p.numMembers}</span></div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('a-pools').innerHTML=html;
+}
+
+async function loadAdminApprovals(){
+    const snap=await db.collection('pools').where('approved','==',false).get();
+    let html='<div class="card"><h2>Pending Approvals</h2>';
+    if(snap.empty){html+='<p class="note">No pending approvals.</p>';}
+    snap.forEach(doc=>{
+        const p=doc.data();
+        html+=`<div class="item"><div><b>${p.name}</b><br><span style="font-size:10px">${p.agentName} | ${p.type} | Rs ${p.monthlyAmt} x ${p.numMembers}</span></div><div><button class="btn btn-green btn-sm" onclick="approvePool('${doc.id}')">Approve</button> <button class="btn btn-red btn-sm" onclick="rejectPool('${doc.id}')">Reject</button></div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('a-approve').innerHTML=html;
+}
+
+async function approvePool(id){await db.collection('pools').doc(id).update({approved:true});loadAdminApprovals();loadAdminPools();}
+async function rejectPool(id){if(confirm('Reject this pool?')){await db.collection('pools').doc(id).delete();loadAdminApprovals();}}
+
+// ═══════════════════════════════════════════════════════════
+// AGENT VIEW
+// ═══════════════════════════════════════════════════════════
+async function renderAgent(){
+    const mc=document.getElementById('mainContainer');
+    mc.innerHTML=`<div class="tabs">
+        <div class="tab active" onclick="agTab(this,'ag-pools')">My Pools</div>
+        <div class="tab" onclick="agTab(this,'ag-create')">Create Pool</div>
+        <div class="tab" onclick="agTab(this,'ag-members')">Members</div>
+    </div>
+    <div id="ag-pools" class="tc active"></div>
+    <div id="ag-create" class="tc"></div>
+    <div id="ag-members" class="tc"></div>`;
+    loadAgentPools();
+}
+function agTab(el,id){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(id).classList.add('active');
+    if(id==='ag-pools')loadAgentPools();
+    if(id==='ag-create')loadCreatePool();
+    if(id==='ag-members')loadAgentMembers();
+}
+
+async function loadAgentPools(){
+    const snap=await db.collection('pools').where('agentId','==',CU.uid).get();
+    let html='<div class="card"><h2>My Chit Pools</h2>';
+    if(snap.empty){html+='<p class="note">No pools yet. Create one from the Create Pool tab.</p>';}
+    snap.forEach(doc=>{
+        const p=doc.data();
+        const status=p.approved?'<span class="badge b-approved">Active</span>':'<span class="badge b-waiting">Awaiting Approval</span>';
+        html+=`<div class="item" style="cursor:pointer" onclick="openPool('${doc.id}')"><div><b>${p.name}</b> ${status}<br><span style="font-size:10px">${p.type} | Rs ${p.monthlyAmt} x ${p.numMembers} | Month ${p.currentMonth||0}/${p.numMembers}</span></div><div style="font-size:18px;color:#006064">&rarr;</div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('ag-pools').innerHTML=html;
+}
+
+function loadCreatePool(){
+    document.getElementById('ag-create').innerHTML=`<div class="card"><h2>Create New Chit Pool</h2>
+    <div class="row"><label>Pool Name:</label><input type="text" id="pName" placeholder="e.g. Gold Chit 2026"></div>
+    <div class="row"><label>Type:</label><select id="pType"><option value="bid">Bid (lowest bidder wins)</option><option value="lottery">Lottery (random winner)</option></select></div>
+    <div class="row"><label>Members:</label><input type="number" id="pMembers" value="10" min="5" max="50" style="max-width:80px"></div>
+    <div class="row"><label>Monthly (Rs):</label><select id="pAmt">${[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,15000,20000].map(v=>'<option value="'+v+'"'+(v===5000?' selected':'')+'>Rs '+v.toLocaleString('en-IN')+'</option>').join('')}</select></div>
+    <div class="row"><label>Commission %:</label><input type="number" id="pComm" value="5" step="0.5" style="max-width:80px"></div>
+    <button class="btn btn-gold btn-full" onclick="createPool()">Submit for Admin Approval</button>
+    <div id="createMsg"></div></div>`;
+}
+
+async function createPool(){
+    const name=document.getElementById('pName').value.trim();
+    const type=document.getElementById('pType').value;
+    const numMembers=parseInt(document.getElementById('pMembers').value);
+    const monthlyAmt=parseInt(document.getElementById('pAmt').value);
+    const commission=parseFloat(document.getElementById('pComm').value);
+    if(!name){alert('Enter pool name.');return;}
+    await db.collection('pools').add({
+        name,type,numMembers,monthlyAmt,commission,
+        agentId:CU.uid,agentName:UD.name,
+        approved:false,currentMonth:0,
+        members:[],bids:[],
+        createdAt:new Date()
+    });
+    document.getElementById('createMsg').innerHTML='<div class="msg msg-ok">Pool submitted for admin approval!</div>';
+}
+
+async function loadAgentMembers(){
+    const snap=await db.collection('users').where('agentId','==',CU.uid).get();
+    let html='<div class="card"><h2>My Members</h2>';
+    html+=`<div class="row"><input type="email" id="addMemEmail" placeholder="Member email" style="max-width:200px"><button class="btn btn-primary btn-sm" onclick="assignMember()">+ Assign to me</button></div>`;
+    if(snap.empty){html+='<p class="note">No members assigned yet.</p>';}
+    snap.forEach(doc=>{
+        const m=doc.data();
+        html+=`<div class="item"><div><b>${m.name}</b><br><span style="font-size:10px">${m.email} | ${m.phone||'—'}</span></div><div><span class="stars">${'\u2605'.repeat(Math.round(m.rating||5))}</span></div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('ag-members').innerHTML=html;
+}
+
+async function assignMember(){
+    const email=document.getElementById('addMemEmail').value.trim();
+    if(!email){alert('Enter member email.');return;}
+    const snap=await db.collection('users').where('email','==',email).get();
+    if(snap.empty){alert('No user found with that email. Ask them to register first.');return;}
+    const doc=snap.docs[0];
+    await db.collection('users').doc(doc.id).update({agentId:CU.uid});
+    document.getElementById('addMemEmail').value='';
+    loadAgentMembers();
+}
+
+// ═══════════════════════════════════════════════════════════
+// POOL VIEW (Agent conducts bids/lottery)
+// ═══════════════════════════════════════════════════════════
+let currentPoolId=null,currentPool=null;
+
+async function openPool(poolId){
+    currentPoolId=poolId;
+    const doc=await db.collection('pools').doc(poolId).get();
+    currentPool=doc.data();
+    const mc=document.getElementById('mainContainer');
+    const month=(currentPool.currentMonth||0)+1;
+    const pool=currentPool.numMembers*currentPool.monthlyAmt;
+    const comm=pool*currentPool.commission/100;
+
+    let html=`<button class="btn btn-sm" onclick="renderAgent()" style="margin-bottom:10px">&larr; Back to Pools</button>`;
+    html+=`<div class="card"><h2>${currentPool.name} — Month ${month}</h2>
+    <div class="sg"><div class="sc"><div class="v">Rs ${pool.toLocaleString('en-IN')}</div><div class="l">Pool</div></div><div class="sc"><div class="v">${currentPool.type}</div><div class="l">Type</div></div></div>
+    <p class="note">Members: ${(currentPool.members||[]).length}/${currentPool.numMembers} | Commission: ${currentPool.commission}%</p></div>`;
+
+    // Add member to pool
+    html+=`<div class="card"><h2>Pool Members</h2>
+    <div class="row"><input type="email" id="poolMemEmail" placeholder="Member email"><button class="btn btn-primary btn-sm" onclick="addToPool()">+ Add to Pool</button></div>
+    <div id="joinRequests"></div>
+    <div id="poolMembersList"></div></div>`;
+
+    // Bid or Lottery
+    if(currentPool.type==='lottery'){
+        html+=`<div class="card"><h2>Monthly Lottery</h2>
+        <div class="lottery-box"><h3>Month ${month} Draw</h3>
+        <div class="lottery-spinner" id="spinnerText">Press to Draw</div>
+        <button class="lottery-btn" id="lotteryBtn" onclick="runLottery()">🎰 DRAW WINNER</button></div>
+        <div id="lotteryResult"></div></div>`;
+    } else {
+        html+=`<div class="card"><h2>Monthly Bid</h2>
+        <div class="row"><label>Winner:</label><select id="bidWinner"></select></div>
+        <div class="row"><label>Bid Amount:</label><input type="number" id="bidAmt" placeholder="Rs"></div>
+        <button class="btn btn-gold btn-full" onclick="processBid()">Process Bid</button>
+        <div id="bidResult"></div></div>`;
+    }
+
+    // History
+    html+=`<div class="card"><h2>History</h2><div id="poolHistory"></div></div>`;
+
+    mc.innerHTML=html;
+    loadPoolMembers();
+    if(currentPool.type==='bid') loadBidEligible();
+    loadPoolHistory();
+}
+
+async function addToPool(){
+    const email=document.getElementById('poolMemEmail').value.trim();
+    if(!email){alert('Enter email.');return;}
+    const snap=await db.collection('users').where('email','==',email).get();
+    if(snap.empty){alert('User not found. Ask them to register.');return;}
+    const user=snap.docs[0].data();
+    const members=currentPool.members||[];
+    if(members.find(m=>m.email===email)){alert('Already in pool.');return;}
+    if(members.length>=currentPool.numMembers){alert('Pool is full.');return;}
+    members.push({uid:snap.docs[0].id,name:user.name,email:user.email,phone:user.phone||'',won:false,wonMonth:null});
+    await db.collection('pools').doc(currentPoolId).update({members});
+    currentPool.members=members;
+    document.getElementById('poolMemEmail').value='';
+    loadPoolMembers();
+    if(currentPool.type==='bid') loadBidEligible();
+}
+
+function loadPoolMembers(){
+    const members=currentPool.members||[];
+    let html='';
+    members.forEach((m,i)=>{
+        const badge=m.won?'<span class="badge b-won">Won M'+m.wonMonth+'</span>':'<span class="badge b-pending">Pending</span>';
+        html+=`<div class="item"><div>${i+1}. <b>${m.name}</b> ${badge}<br><span style="font-size:10px">${m.phone||m.email}</span></div><div><button class="btn btn-wa btn-sm" onclick="waRemind('${m.name}','${m.phone}')">WA</button></div></div>`;
+    });
+    document.getElementById('poolMembersList').innerHTML=html||'<p class="note">No members in pool yet.</p>';
+
+    // Show join requests
+    const requests=currentPool.joinRequests||[];
+    let rhtml='';
+    if(requests.length>0){
+        rhtml='<div style="background:#FFF3E0;border-radius:8px;padding:10px;margin-bottom:10px"><b style="font-size:11px;color:#E65100">Join Requests ('+requests.length+'):</b>';
+        requests.forEach((r,i)=>{
+            rhtml+=`<div class="item"><div><b>${r.name}</b><br><span style="font-size:10px">${r.email}</span></div><div><button class="btn btn-green btn-sm" onclick="approveJoin(${i})">Accept</button> <button class="btn btn-red btn-sm" onclick="rejectJoin(${i})">Reject</button></div></div>`;
+        });
+        rhtml+='</div>';
+    }
+    document.getElementById('joinRequests').innerHTML=rhtml;
+}
+
+async function approveJoin(idx){
+    const requests=currentPool.joinRequests||[];
+    const r=requests[idx];
+    const members=currentPool.members||[];
+    if(members.length>=currentPool.numMembers){alert('Pool is full!');return;}
+    members.push({uid:r.uid,name:r.name,email:r.email,phone:r.phone||'',won:false,wonMonth:null});
+    requests.splice(idx,1);
+    await db.collection('pools').doc(currentPoolId).update({members,joinRequests:requests});
+    currentPool.members=members;
+    currentPool.joinRequests=requests;
+    loadPoolMembers();
+    if(currentPool.type==='bid') loadBidEligible();
+}
+
+async function rejectJoin(idx){
+    const requests=currentPool.joinRequests||[];
+    requests.splice(idx,1);
+    await db.collection('pools').doc(currentPoolId).update({joinRequests:requests});
+    currentPool.joinRequests=requests;
+    loadPoolMembers();
+}
+
+function waRemind(name,phone){
+    if(!phone){alert('No phone for '+name);return;}
+    const p=phone.replace(/[^0-9]/g,'');
+    const month=(currentPool.currentMonth||0)+1;
+    const msg=encodeURIComponent('Hi '+name+',\n\nYour Chittly payment of Rs '+currentPool.monthlyAmt.toLocaleString('en-IN')+' for Month '+month+' is due.\n\nPlease pay at the earliest.\n\n- '+UD.name);
+    window.open('https://wa.me/'+p+'?text='+msg,'_blank');
+}
+
+// LOTTERY
+async function runLottery(){
+    const eligible=(currentPool.members||[]).filter(m=>!m.won);
+    if(eligible.length===0){alert('All members have won!');return;}
+    const btn=document.getElementById('lotteryBtn');
+    const spinner=document.getElementById('spinnerText');
+    btn.disabled=true;
+
+    // Spinning animation
+    let count=0;
+    const interval=setInterval(()=>{
+        const rand=eligible[Math.floor(Math.random()*eligible.length)];
+        spinner.textContent=rand.name;
+        count++;
+        if(count>20){
+            clearInterval(interval);
+            // Pick final winner
+            const winner=eligible[Math.floor(Math.random()*eligible.length)];
+            spinner.textContent='🎉 '+winner.name+' 🎉';
+            spinner.style.fontSize='24px';
+            // Save result
+            saveLotteryResult(winner);
+            btn.disabled=false;
+        }
+    },150);
+}
+
+async function saveLotteryResult(winner){
+    const month=(currentPool.currentMonth||0)+1;
+    const pool=currentPool.numMembers*currentPool.monthlyAmt;
+    const comm=pool*currentPool.commission/100;
+    const payout=pool-comm;
+
+    // Mark winner
+    const members=currentPool.members;
+    const idx=members.findIndex(m=>m.email===winner.email);
+    members[idx].won=true;
+    members[idx].wonMonth=month;
+
+    // Save bid/lottery record
+    const bids=currentPool.bids||[];
+    bids.push({month,winner:winner.name,type:'lottery',payout,commission:comm,date:new Date().toISOString()});
+
+    await db.collection('pools').doc(currentPoolId).update({members,bids,currentMonth:month});
+    currentPool.members=members;
+    currentPool.bids=bids;
+    currentPool.currentMonth=month;
+
+    document.getElementById('lotteryResult').innerHTML=`<div class="msg msg-ok"><b>Winner: ${winner.name}</b><br>Receives: Rs ${payout.toLocaleString('en-IN')} (after ${currentPool.commission}% commission)</div>`;
+    loadPoolMembers();
+    loadPoolHistory();
+}
+
+// BID
+function loadBidEligible(){
+    const eligible=(currentPool.members||[]).filter(m=>!m.won);
+    let opts='<option value="">-- Select --</option>';
+    eligible.forEach(m=>{opts+=`<option value="${m.email}">${m.name}</option>`;});
+    const sel=document.getElementById('bidWinner');
+    if(sel) sel.innerHTML=opts;
+}
+
+async function processBid(){
+    const winnerEmail=document.getElementById('bidWinner').value;
+    const bidAmt=parseInt(document.getElementById('bidAmt').value);
+    if(!winnerEmail){alert('Select winner.');return;}
+    const pool=currentPool.numMembers*currentPool.monthlyAmt;
+    const comm=pool*currentPool.commission/100;
+    if(!bidAmt||bidAmt>pool-comm){alert('Invalid bid amount. Max: Rs '+(pool-comm));return;}
+
+    const month=(currentPool.currentMonth||0)+1;
+    const dividend=Math.round((pool-bidAmt-comm)/currentPool.numMembers);
+    const netPayment=currentPool.monthlyAmt-dividend;
+
+    const members=currentPool.members;
+    const idx=members.findIndex(m=>m.email===winnerEmail);
+    const winnerName=members[idx].name;
+    members[idx].won=true;
+    members[idx].wonMonth=month;
+
+    const bids=currentPool.bids||[];
+    bids.push({month,winner:winnerName,type:'bid',bidAmt,dividend,netPayment,commission:comm,date:new Date().toISOString()});
+
+    await db.collection('pools').doc(currentPoolId).update({members,bids,currentMonth:month});
+    currentPool.members=members;currentPool.bids=bids;currentPool.currentMonth=month;
+
+    document.getElementById('bidResult').innerHTML=`<div class="msg msg-ok"><b>Winner: ${winnerName}</b><br>Bid: Rs ${bidAmt.toLocaleString('en-IN')} | Dividend: Rs ${dividend}/member | Net: Rs ${netPayment}/member</div>`;
+    loadPoolMembers();loadBidEligible();loadPoolHistory();
+}
+
+function loadPoolHistory(){
+    const bids=currentPool.bids||[];
+    let html='<table class="tbl"><tr><th>M</th><th>Winner</th><th>Type</th><th>Amount</th></tr>';
+    bids.forEach(b=>{
+        const amt=b.type==='lottery'?'Rs '+b.payout.toLocaleString('en-IN'):'Rs '+b.bidAmt.toLocaleString('en-IN');
+        html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>${b.type}</td><td>${amt}</td></tr>`;
+    });
+    html+='</table>';
+    const el=document.getElementById('poolHistory');
+    if(el) el.innerHTML=bids.length?html:'<p class="note">No history yet.</p>';
+}
+
+// ═══════════════════════════════════════════════════════════
+// MEMBER VIEW
+// ═══════════════════════════════════════════════════════════
+async function renderMember(){
+    const mc=document.getElementById('mainContainer');
+    mc.innerHTML=`<div class="tabs">
+        <div class="tab active" onclick="mTab(this,'m-my')">My Pools</div>
+        <div class="tab" onclick="mTab(this,'m-browse')">Browse Pools</div>
+        <div class="tab" onclick="mTab(this,'m-status')">My Status</div>
+    </div>
+    <div id="m-my" class="tc active"></div>
+    <div id="m-browse" class="tc"></div>
+    <div id="m-status" class="tc"></div>`;
+    loadMyPools();
+}
+function mTab(el,id){
+    document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+    document.querySelectorAll('.tc').forEach(t=>t.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById(id).classList.add('active');
+    if(id==='m-my')loadMyPools();
+    if(id==='m-browse')loadBrowsePools();
+    if(id==='m-status')loadMyStatus();
+}
+
+async function loadMyPools(){
+    const snap=await db.collection('pools').where('approved','==',true).get();
+    let myPools=[];
+    snap.forEach(doc=>{
+        const p=doc.data();
+        if((p.members||[]).find(m=>m.email===CU.email)){
+            myPools.push({id:doc.id,...p});
+        }
+    });
+
+    let html='';
+    if(myPools.length===0){
+        html='<div class="card"><p class="note">You are not part of any pool yet. Browse available pools to join one.</p></div>';
+    }
+    myPools.forEach(pool=>{
+        const me=(pool.members||[]).find(m=>m.email===CU.email);
+        const status=me&&me.won?'<span class="badge b-won">Won Month '+me.wonMonth+'</span>':'<span class="badge b-pending">Not yet won</span>';
+        html+=`<div class="card"><h2>${pool.name}</h2>
+        <div class="sg"><div class="sc"><div class="v">Rs ${pool.monthlyAmt.toLocaleString('en-IN')}</div><div class="l">Monthly</div></div><div class="sc"><div class="v">${pool.currentMonth||0}/${pool.numMembers}</div><div class="l">Month</div></div></div>
+        <p style="font-size:12px"><b>Type:</b> ${pool.type} | <b>Status:</b> ${status}</p>`;
+
+        // Show last result
+        if(pool.bids&&pool.bids.length>0){
+            const last=pool.bids[pool.bids.length-1];
+            html+=`<div class="msg msg-ok" style="margin-top:8px"><b>Last Result (Month ${last.month}):</b> Winner: ${last.winner}`;
+            if(last.type==='bid') html+=` | Your payment: Rs ${(last.netPayment||pool.monthlyAmt).toLocaleString('en-IN')}`;
+            html+=`</div>`;
+        }
+        html+=`</div>`;
+    });
+    document.getElementById('m-my').innerHTML=html;
+}
+
+async function loadBrowsePools(){
+    const snap=await db.collection('pools').where('approved','==',true).get();
+    let html='<div class="card"><h2>Available Pools</h2>';
+    if(snap.empty){html+='<p class="note">No pools available right now.</p></div>';document.getElementById('m-browse').innerHTML=html;return;}
+
+    snap.forEach(doc=>{
+        const p=doc.data();
+        const members=p.members||[];
+        const isMember=members.find(m=>m.email===CU.email);
+        const spotsLeft=p.numMembers-members.length;
+        const isFull=spotsLeft<=0;
+
+        // Status badge
+        let statusBadge='';
+        if(isFull) statusBadge='<span class="badge b-won">Full</span>';
+        else if(spotsLeft<=3) statusBadge='<span class="badge b-waiting">Filling Fast! '+spotsLeft+' left</span>';
+        else statusBadge='<span class="badge b-approved">Open ('+spotsLeft+' spots)</span>';
+
+        // Join button
+        let joinBtn='';
+        if(isMember) joinBtn='<span style="font-size:10px;color:#2E7D32;font-weight:600">✓ Joined</span>';
+        else if(isFull) joinBtn='<span style="font-size:10px;color:#999">Full</span>';
+        else{
+            // Check if already requested
+            const requested=(p.joinRequests||[]).find(r=>r.email===CU.email);
+            if(requested) joinBtn='<span style="font-size:10px;color:#E65100">⏳ Request Pending</span>';
+            else joinBtn=`<button class="btn btn-green btn-sm" onclick="requestJoin('${doc.id}')">Join</button>`;
+        }
+
+        html+=`<div class="item"><div><b>${p.name}</b> ${statusBadge}<br><span style="font-size:10px">${p.type} | Rs ${p.monthlyAmt.toLocaleString('en-IN')}/month | ${members.length}/${p.numMembers} members</span><br><span style="font-size:10px;color:#777">Agent: ${p.agentName}</span></div><div>${joinBtn}</div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('m-browse').innerHTML=html;
+}
+
+async function requestJoin(poolId){
+    const doc=await db.collection('pools').doc(poolId).get();
+    const pool=doc.data();
+    const requests=pool.joinRequests||[];
+    if(requests.find(r=>r.email===CU.email)){alert('Already requested.');return;}
+    requests.push({uid:CU.uid,name:UD.name,email:CU.email,phone:UD.phone||'',requestedAt:new Date().toISOString()});
+    await db.collection('pools').doc(poolId).update({joinRequests:requests});
+    alert('Join request sent! The agent will review it.');
+    loadBrowsePools();
+}
+
+async function loadMyStatus(){
+    let html=`<div class="card"><h2>My Profile</h2>
+    <p><b>Name:</b> ${UD.name}</p>
+    <p><b>Email:</b> ${CU.email}</p>
+    <p><b>Phone:</b> ${UD.phone||'Not set'}</p>
+    <p><b>Rating:</b> <span class="stars">${'\u2605'.repeat(Math.round(UD.rating||5))+'\u2606'.repeat(5-Math.round(UD.rating||5))}</span> (${UD.rating||5}/5)</p>
+    <p><b>On-time payments:</b> ${UD.onTime||0}</p>
+    <p><b>Late payments:</b> ${UD.late||0}</p>
+    </div>`;
+    document.getElementById('m-status').innerHTML=html;
+}
+</script>
+</body>
+>>>>>>> 5a762bce8dbfc3bb5fad7f9599388a34a8e8e6e3
 </html>
