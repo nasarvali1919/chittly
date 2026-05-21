@@ -244,8 +244,11 @@ async function loadAdminPools(){
     if(snap.empty){html+='<p class="note">No pools created yet.</p>';}
     snap.forEach(doc=>{
         const p=doc.data();
-        const status=p.approved?'<span class="badge b-approved">Approved</span>':'<span class="badge b-waiting">Pending</span>';
-        html+=`<div class="item"><div><b>${p.name}</b> ${status}<br><span style="font-size:10px">Agent: ${p.agentName} | ${p.type} | Rs ${p.monthlyAmt} x ${p.numMembers} members</span></div><div><span style="font-size:10px">Month ${p.currentMonth||0}/${p.numMembers}</span></div></div>`;
+        const members=p.members||[];
+        const spotsLeft=p.numMembers-members.length;
+        const status=p.approved?'<span class="badge b-approved">Active</span>':'<span class="badge b-waiting">Pending</span>';
+        const fillStatus=spotsLeft<=0?'<span class="badge b-won">Full</span>':spotsLeft<=3?'<span class="badge b-waiting">'+spotsLeft+' left</span>':'<span class="badge b-approved">'+spotsLeft+' spots</span>';
+        html+=`<div class="item" style="cursor:pointer" onclick="openPool('${doc.id}')"><div><b>${p.name}</b> ${status} ${fillStatus}<br><span style="font-size:10px">Agent: ${p.agentName} | ${p.type} | Rs ${p.monthlyAmt.toLocaleString('en-IN')} x ${p.numMembers} | Month ${p.currentMonth||0}/${p.numMembers}</span></div><div style="font-size:18px;color:#006064">&rarr;</div></div>`;
     });
     html+='</div>';
     document.getElementById('a-pools').innerHTML=html;
@@ -370,7 +373,7 @@ async function openPool(poolId){
     const pool=currentPool.numMembers*currentPool.monthlyAmt;
     const comm=pool*currentPool.commission/100;
 
-    let html=`<button class="btn btn-sm" onclick="renderAgent()" style="margin-bottom:10px">&larr; Back to Pools</button>`;
+    let html=`<button class="btn btn-sm" onclick="renderDashboard()" style="margin-bottom:10px">&larr; Back</button>`;
     html+=`<div class="card"><h2>${currentPool.name} — Month ${month}</h2>
     <div class="sg"><div class="sc"><div class="v">Rs ${pool.toLocaleString('en-IN')}</div><div class="l">Pool</div></div><div class="sc"><div class="v">${currentPool.type}</div><div class="l">Type</div></div></div>
     <p class="note">Members: ${(currentPool.members||[]).length}/${currentPool.numMembers} | Commission: ${currentPool.commission}%</p></div>`;
