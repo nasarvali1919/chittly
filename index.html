@@ -241,11 +241,17 @@ function aTab(el,id){
 
 async function loadAdminUsers(){
     const snap=await db.collection('users').get();
+    // Also load pools for "Add to Pool" feature
+    const poolSnap=await db.collection('pools').where('approved','==',true).get();
+    let poolOpts='<option value="">-- Add to Pool --</option>';
+    poolSnap.forEach(doc=>{const p=doc.data();const spots=p.numMembers-(p.members||[]).length;if(spots>0) poolOpts+=`<option value="${doc.id}">${p.name} (${spots} spots)</option>`;});
+
     let html='<div class="card"><h2>All Registered Users</h2>';
     snap.forEach(doc=>{
         const u=doc.data();
         const rb=u.role==='admin'?'<span class="badge b-approved">Admin</span>':u.role==='agent'?'<span class="badge b-agent">Agent</span>':'<span class="badge b-pending">Member</span>';
-        html+=`<div class="item"><div><b>${u.name}</b><br><span style="font-size:10px;color:#777">${u.email} | ${u.phone||'—'}</span></div><div>${rb}<br><select style="font-size:10px;padding:2px;margin-top:4px" onchange="changeRole('${doc.id}',this.value)"><option value="member" ${u.role==='member'?'selected':''}>Member</option><option value="agent" ${u.role==='agent'?'selected':''}>Agent</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select></div></div>`;
+        const delBtn=u.role!=='admin'?`<button class="btn btn-red btn-sm" style="margin-top:4px" onclick="deleteUser('${doc.id}','${u.name}')">🗑 Delete</button>`:'';
+        html+=`<div class="item"><div><b>${u.name}</b><br><span style="font-size:10px;color:#777">${u.email} | ${u.phone||'—'}</span></div><div>${rb}<br><select style="font-size:10px;padding:2px;margin-top:4px" onchange="changeRole('${doc.id}',this.value)"><option value="member" ${u.role==='member'?'selected':''}>Member</option><option value="agent" ${u.role==='agent'?'selected':''}>Agent</option><option value="admin" ${u.role==='admin'?'selected':''}>Admin</option></select><br><select style="font-size:10px;padding:2px;margin-top:4px" onchange="adminAddToPool('${doc.id}',this.value);this.selectedIndex=0">${poolOpts}</select><br>${delBtn}</div></div>`;
     });
     html+='</div>';
     document.getElementById('a-users').innerHTML=html;
@@ -254,6 +260,45 @@ async function loadAdminUsers(){
 async function changeRole(uid,role){
     await db.collection('users').doc(uid).update({role});
     loadAdminUsers();
+}
+
+async function deleteUser(uid,name){
+    if(!confirm('Delete user "'+name+'" from the system? This will remove them from all pools too.')) return;
+    // Remove from all pools
+    const poolSnap=await db.collection('pools').get();
+    const batch=db.batch();
+    const userDoc=await db.collection('users').doc(uid).get();
+    const userEmail=userDoc.data().email;
+    poolSnap.forEach(doc=>{
+        const p=doc.data();
+        const members=(p.members||[]).filter(m=>m.uid!==uid && m.email!==userEmail);
+        const joinRequests=(p.joinRequests||[]).filter(r=>r.uid!==uid);
+        if(members.length!==(p.members||[]).length || joinRequests.length!==(p.joinRequests||[]).length){
+            batch.update(doc.ref,{members,joinRequests});
+        }
+    });
+    // Delete payment records
+    const paySnap=await db.collection('payments').where('memberUid','==',uid).get();
+    paySnap.forEach(doc=>batch.delete(doc.ref));
+    // Delete user doc
+    batch.delete(db.collection('users').doc(uid));
+    await batch.commit();
+    alert(name+' has been deleted.');
+    loadAdminUsers();
+}
+
+async function adminAddToPool(uid,poolId){
+    if(!poolId) return;
+    const userDoc=await db.collection('users').doc(uid).get();
+    const user=userDoc.data();
+    const poolDoc=await db.collection('pools').doc(poolId).get();
+    const pool=poolDoc.data();
+    const members=pool.members||[];
+    if(members.find(m=>m.uid===uid||m.email===user.email)){alert(user.name+' is already in this pool.');return;}
+    if(members.length>=pool.numMembers){alert('Pool is full.');return;}
+    members.push({uid,name:user.name,email:user.email,phone:user.phone||'',won:false,wonMonth:null});
+    await db.collection('pools').doc(poolId).update({members});
+    alert(user.name+' added to '+pool.name+'!');
 }
 
 async function loadAdminAgents(){
@@ -579,7 +624,7 @@ async function loadAgentMembers(){
     if(snap.empty){html+='<p class="note">No members assigned yet.</p>';}
     snap.forEach(doc=>{
         const m=doc.data();
-        html+=`<div class="item"><div><b>${m.name}</b><br><span style="font-size:10px">${m.email} | ${m.phone||'—'}</span></div><div><span class="stars">${'\u2605'.repeat(Math.round(m.rating||5))}</span></div></div>`;
+        html+=`<div class="item"><div><b>${m.name}</b><br><span style="font-size:10px">${m.email} | ${m.phone||'—'}</span></div><div><span class="stars">${'\u2605'.repeat(Math.round(m.rating||5))}</span><br><button class="btn btn-red btn-sm" style="margin-top:4px" onclick="unassignMember('${doc.id}','${m.name}')">Remove</button></div></div>`;
     });
     html+='</div>';
     document.getElementById('ag-members').innerHTML=html;
@@ -593,6 +638,12 @@ async function assignMember(){
     const doc=snap.docs[0];
     await db.collection('users').doc(doc.id).update({agentId:CU.uid});
     document.getElementById('addMemEmail').value='';
+    loadAgentMembers();
+}
+
+async function unassignMember(uid,name){
+    if(!confirm('Remove "'+name+'" from your members list?')) return;
+    await db.collection('users').doc(uid).update({agentId:null});
     loadAgentMembers();
 }
 
@@ -673,7 +724,8 @@ function loadPoolMembers(){
     let html='';
     members.forEach((m,i)=>{
         const badge=m.won?'<span class="badge b-won">Won M'+m.wonMonth+'</span>':'<span class="badge b-pending">Pending</span>';
-        html+=`<div class="item"><div>${i+1}. <b>${m.name}</b> ${badge}<br><span style="font-size:10px">${m.phone||m.email}</span></div><div><button class="btn btn-wa btn-sm" onclick="waRemind('${m.name}','${m.phone}')">WA</button></div></div>`;
+        const removeBtn=(UR==='admin'||UR==='agent')?`<button class="btn btn-red btn-sm" onclick="removeFromPool(${i},'${m.name}')" style="margin-left:4px">✕</button>`:'';
+        html+=`<div class="item"><div>${i+1}. <b>${m.name}</b> ${badge}<br><span style="font-size:10px">${m.phone||m.email}</span></div><div><button class="btn btn-wa btn-sm" onclick="waRemind('${m.name}','${m.phone}')">WA</button>${removeBtn}</div></div>`;
     });
     document.getElementById('poolMembersList').innerHTML=html||'<p class="note">No members in pool yet.</p>';
 
@@ -710,6 +762,16 @@ async function rejectJoin(idx){
     await db.collection('pools').doc(currentPoolId).update({joinRequests:requests});
     currentPool.joinRequests=requests;
     loadPoolMembers();
+}
+
+async function removeFromPool(idx,name){
+    if(!confirm('Remove "'+name+'" from this pool?')) return;
+    const members=currentPool.members||[];
+    members.splice(idx,1);
+    await db.collection('pools').doc(currentPoolId).update({members});
+    currentPool.members=members;
+    loadPoolMembers();
+    if(currentPool.type==='bid') loadBidEligible();
 }
 
 function waRemind(name,phone){
