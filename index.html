@@ -556,11 +556,15 @@ async function renderAgent(){
         <div class="tab" onclick="agTab(this,'ag-create')">Create Pool</div>
         <div class="tab" onclick="agTab(this,'ag-members')">Members</div>
         <div class="tab" onclick="agTab(this,'ag-payments')">Payments</div>
+        <div class="tab" onclick="agTab(this,'ag-bids')">Member Bids</div>
+        <div class="tab" onclick="agTab(this,'ag-notif')">Notifications</div>
     </div>
     <div id="ag-pools" class="tc active"></div>
     <div id="ag-create" class="tc"></div>
     <div id="ag-members" class="tc"></div>
-    <div id="ag-payments" class="tc"></div>`;
+    <div id="ag-payments" class="tc"></div>
+    <div id="ag-bids" class="tc"></div>
+    <div id="ag-notif" class="tc"></div>`;
     loadAgentPools();
 }
 function agTab(el,id){
@@ -572,6 +576,8 @@ function agTab(el,id){
     if(id==='ag-create')loadCreatePool();
     if(id==='ag-members')loadAgentMembers();
     if(id==='ag-payments')loadPaymentDashboard();
+    if(id==='ag-bids')loadAgentBids();
+    if(id==='ag-notif')loadAgentNotifications();
 }
 
 async function loadAgentPools(){
@@ -645,6 +651,68 @@ async function unassignMember(uid,name){
     if(!confirm('Remove "'+name+'" from your members list?')) return;
     await db.collection('users').doc(uid).update({agentId:null});
     loadAgentMembers();
+}
+
+// ═══════════════════════════════════════════════════════════
+// AGENT — View Member Bids
+// ═══════════════════════════════════════════════════════════
+async function loadAgentBids(){
+    const poolSnap=await db.collection('pools').where('agentId','==',CU.uid).get();
+    let html='<div class="card"><h2>Member Bids (Current Month)</h2>';
+    if(poolSnap.empty){html+='<p class="note">No pools.</p></div>';document.getElementById('ag-bids').innerHTML=html;return;}
+
+    for(const poolDoc of poolSnap.docs){
+        const pool=poolDoc.data();
+        if(pool.type!=='bid') continue;
+        const currentMonth=(pool.currentMonth||0)+1;
+        const bidSnap=await db.collection('memberBids')
+            .where('poolId','==',poolDoc.id)
+            .where('month','==',currentMonth)
+            .get();
+
+        html+=`<h3 style="font-size:12px;color:#006064;margin:12px 0 6px">${pool.name} — Month ${currentMonth}</h3>`;
+        if(bidSnap.empty){
+            html+=`<p class="note">No bids submitted yet.</p>`;
+        } else {
+            html+=`<table class="tbl"><tr><th>Member</th><th>Bid Amount</th><th>Submitted</th></tr>`;
+            bidSnap.forEach(doc=>{
+                const b=doc.data();
+                html+=`<tr><td>${b.memberName}</td><td>Rs ${b.bidAmount.toLocaleString('en-IN')}</td><td>${new Date(b.submittedAt).toLocaleDateString('en-IN')}</td></tr>`;
+            });
+            html+=`</table>`;
+        }
+    }
+    html+='</div>';
+    document.getElementById('ag-bids').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// AGENT/ADMIN — Notifications
+// ═══════════════════════════════════════════════════════════
+async function loadAgentNotifications(){
+    const snap=await db.collection('notifications')
+        .where('targetUid','==',CU.uid)
+        .orderBy('createdAt','desc')
+        .limit(30)
+        .get();
+
+    const container=document.getElementById('ag-notif');
+    let html='<div class="card"><h2>Notifications</h2>';
+    if(snap.empty){html+='<p class="note">No notifications.</p>';}
+    snap.forEach(doc=>{
+        const n=doc.data();
+        const icon=n.type==='member_joined'?'👋':n.type==='join_request'?'📩':n.type==='bid_submitted'?'📝':'🔔';
+        const readStyle=n.read?'opacity:0.6':'';
+        const time=new Date(n.createdAt).toLocaleString('en-IN');
+        html+=`<div class="item" style="${readStyle}"><div>${icon} ${n.message}<br><span style="font-size:9px;color:#999">${time}</span></div></div>`;
+    });
+    html+='</div>';
+    container.innerHTML=html;
+
+    // Mark as read
+    snap.forEach(doc=>{
+        if(!doc.data().read) db.collection('notifications').doc(doc.id).update({read:true});
+    });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -752,6 +820,33 @@ async function approveJoin(idx){
     await db.collection('pools').doc(currentPoolId).update({members,joinRequests:requests});
     currentPool.members=members;
     currentPool.joinRequests=requests;
+
+    // Notify the new member
+    await db.collection('notifications').add({
+        type:'member_joined',
+        message:'Welcome! You have been added to "'+currentPool.name+'". Monthly: Rs '+currentPool.monthlyAmt.toLocaleString('en-IN')+' | Type: '+currentPool.type,
+        poolId:currentPoolId,
+        targetUid:r.uid,
+        forAdmin:false,
+        read:false,
+        createdAt:new Date().toISOString()
+    });
+
+    // Notify all existing members about new joiner
+    for(const m of members){
+        if(m.uid!==r.uid){
+            await db.collection('notifications').add({
+                type:'member_joined',
+                message:r.name+' has joined "'+currentPool.name+'" ('+members.length+'/'+currentPool.numMembers+' members now)',
+                poolId:currentPoolId,
+                targetUid:m.uid,
+                forAdmin:false,
+                read:false,
+                createdAt:new Date().toISOString()
+            });
+        }
+    }
+
     loadPoolMembers();
     if(currentPool.type==='bid') loadBidEligible();
 }
@@ -886,13 +981,17 @@ async function renderMember(){
     const mc=document.getElementById('mainContainer');
     mc.innerHTML=`<div class="tabs">
         <div class="tab active" onclick="mTab(this,'m-my')">My Pools</div>
+        <div class="tab" onclick="mTab(this,'m-bid')">My Bids</div>
         <div class="tab" onclick="mTab(this,'m-browse')">Browse Pools</div>
         <div class="tab" onclick="mTab(this,'m-pay')">Pay</div>
+        <div class="tab" onclick="mTab(this,'m-notif')">Notifications</div>
         <div class="tab" onclick="mTab(this,'m-status')">My Status</div>
     </div>
     <div id="m-my" class="tc active"></div>
+    <div id="m-bid" class="tc"></div>
     <div id="m-browse" class="tc"></div>
     <div id="m-pay" class="tc"></div>
+    <div id="m-notif" class="tc"></div>
     <div id="m-status" class="tc"></div>`;
     loadMyPools();
 }
@@ -902,8 +1001,10 @@ function mTab(el,id){
     el.classList.add('active');
     document.getElementById(id).classList.add('active');
     if(id==='m-my')loadMyPools();
+    if(id==='m-bid')loadMemberBids();
     if(id==='m-browse')loadBrowsePools();
     if(id==='m-pay')loadMemberPayment();
+    if(id==='m-notif')loadMemberNotifications();
     if(id==='m-status')loadMyStatus();
 }
 
@@ -948,6 +1049,151 @@ async function loadMyPools(){
     document.getElementById('m-my').innerHTML=html;
 }
 
+// ═══════════════════════════════════════════════════════════
+// MEMBER BIDS — Submit bids from member login
+// ═══════════════════════════════════════════════════════════
+async function loadMemberBids(){
+    const snap=await db.collection('pools').where('approved','==',true).get();
+    let myBidPools=[];
+    snap.forEach(doc=>{
+        const p=doc.data();
+        if(p.type==='bid' && (p.members||[]).find(m=>m.email===CU.email)){
+            myBidPools.push({id:doc.id,...p});
+        }
+    });
+
+    let html='';
+    if(myBidPools.length===0){
+        html='<div class="card"><p class="note">You are not part of any bid-type pool. Only bid pools allow member bidding.</p></div>';
+        document.getElementById('m-bid').innerHTML=html;
+        return;
+    }
+
+    for(const pool of myBidPools){
+        const me=(pool.members||[]).find(m=>m.email===CU.email);
+        const currentMonth=(pool.currentMonth||0)+1;
+        const poolTotal=pool.numMembers*pool.monthlyAmt;
+        const comm=poolTotal*pool.commission/100;
+        const maxBid=poolTotal-comm;
+        const hasWon=me&&me.won;
+
+        html+=`<div class="card"><h2>${pool.name} — Month ${currentMonth} Bid</h2>`;
+
+        // Disclaimer for bid type
+        html+=`<div style="background:#FFF8E1;border:1px solid #FFD54F;border-radius:8px;padding:10px;margin-bottom:10px">
+        <b style="font-size:11px;color:#F57F17">📋 BID POOL RULES:</b>
+        <ul style="font-size:10px;color:#555;margin:6px 0 0 16px;line-height:1.7">
+        <li>The <b>lowest bidder</b> wins the pool amount for this month.</li>
+        <li>Pool total: Rs ${poolTotal.toLocaleString('en-IN')} | Commission: ${pool.commission}%</li>
+        <li>Maximum bid allowed: Rs ${maxBid.toLocaleString('en-IN')} (pool minus commission)</li>
+        <li>The difference (pool - bid - commission) is distributed as dividend to all members.</li>
+        <li>Each member can win only <b>once</b> during the entire chit duration.</li>
+        <li>Once you bid, it cannot be changed. Agent/Admin selects the lowest bid as winner.</li>
+        <li>All members must pay their monthly contribution regardless of bidding.</li>
+        </ul></div>`;
+
+        if(hasWon){
+            html+=`<div class="msg msg-ok">✅ You have already won in Month ${me.wonMonth}. No more bids needed.</div>`;
+        } else {
+            // Check if already bid this month
+            const bidSnap=await db.collection('memberBids')
+                .where('poolId','==',pool.id)
+                .where('memberEmail','==',CU.email)
+                .where('month','==',currentMonth)
+                .get();
+
+            if(!bidSnap.empty){
+                const existingBid=bidSnap.docs[0].data();
+                html+=`<div class="msg" style="background:#E3F2FD;color:#1565C0">📝 Your bid for Month ${currentMonth}: <b>Rs ${existingBid.bidAmount.toLocaleString('en-IN')}</b><br><span style="font-size:10px">Submitted: ${new Date(existingBid.submittedAt).toLocaleString('en-IN')}</span></div>`;
+            } else {
+                html+=`<div class="row"><label>Your Bid (Rs):</label><input type="number" id="bidInput_${pool.id}" placeholder="Enter amount" min="1" max="${maxBid}" style="max-width:150px"></div>
+                <p class="note">Enter the amount you want to receive. Lower bid = higher chance of winning.</p>
+                <button class="btn btn-gold btn-full" onclick="submitMemberBid('${pool.id}','${pool.name}',${currentMonth},${maxBid})">Submit My Bid</button>`;
+            }
+        }
+
+        // Show all bids for this month (anonymized for fairness — only show count)
+        const allBidsSnap=await db.collection('memberBids')
+            .where('poolId','==',pool.id)
+            .where('month','==',currentMonth)
+            .get();
+        html+=`<p class="note" style="margin-top:10px">Bids received this month: ${allBidsSnap.size}/${(pool.members||[]).filter(m=>!m.won).length} eligible members</p>`;
+
+        html+=`<div id="bidMsg_${pool.id}"></div></div>`;
+    }
+    document.getElementById('m-bid').innerHTML=html;
+}
+
+async function submitMemberBid(poolId,poolName,month,maxBid){
+    const input=document.getElementById('bidInput_'+poolId);
+    const bidAmount=parseInt(input.value);
+    if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount.');return;}
+    if(bidAmount>maxBid){alert('Bid cannot exceed Rs '+maxBid.toLocaleString('en-IN'));return;}
+
+    // Check if already bid
+    const existing=await db.collection('memberBids')
+        .where('poolId','==',poolId)
+        .where('memberEmail','==',CU.email)
+        .where('month','==',month)
+        .get();
+    if(!existing.empty){alert('You have already submitted a bid for this month.');return;}
+
+    await db.collection('memberBids').add({
+        poolId,
+        poolName,
+        month,
+        bidAmount,
+        memberEmail:CU.email,
+        memberName:UD.name,
+        memberUid:CU.uid,
+        submittedAt:new Date().toISOString()
+    });
+
+    // Notify agent/admin
+    const poolDoc=await db.collection('pools').doc(poolId).get();
+    const pool=poolDoc.data();
+    await db.collection('notifications').add({
+        type:'bid_submitted',
+        message:UD.name+' submitted a bid of Rs '+bidAmount.toLocaleString('en-IN')+' for '+poolName+' (Month '+month+')',
+        poolId,
+        targetUid:pool.agentId,
+        forAdmin:true,
+        read:false,
+        createdAt:new Date().toISOString()
+    });
+
+    document.getElementById('bidMsg_'+poolId).innerHTML='<div class="msg msg-ok">✅ Bid submitted: Rs '+bidAmount.toLocaleString('en-IN')+'</div>';
+    setTimeout(()=>loadMemberBids(),1500);
+}
+
+// ═══════════════════════════════════════════════════════════
+// MEMBER NOTIFICATIONS
+// ═══════════════════════════════════════════════════════════
+async function loadMemberNotifications(){
+    const snap=await db.collection('notifications')
+        .where('targetUid','==',CU.uid)
+        .orderBy('createdAt','desc')
+        .limit(20)
+        .get();
+
+    let html='<div class="card"><h2>Notifications</h2>';
+    if(snap.empty){html+='<p class="note">No notifications yet.</p>';}
+    snap.forEach(doc=>{
+        const n=doc.data();
+        const icon=n.type==='member_joined'?'👋':n.type==='bid_submitted'?'📝':n.type==='payment_approved'?'✅':n.type==='payment_rejected'?'❌':'🔔';
+        const readStyle=n.read?'opacity:0.6':'';
+        const time=new Date(n.createdAt).toLocaleString('en-IN');
+        html+=`<div class="item" style="${readStyle}"><div>${icon} ${n.message}<br><span style="font-size:9px;color:#999">${time}</span></div></div>`;
+    });
+    html+='</div>';
+    document.getElementById('m-notif').innerHTML=html;
+
+    // Mark all as read
+    snap.forEach(doc=>{
+        if(!doc.data().read) db.collection('notifications').doc(doc.id).update({read:true});
+    });
+}
+
 async function loadBrowsePools(){
     const snap=await db.collection('pools').where('approved','==',true).get();
     let html='<div class="card"><h2>Available Pools</h2>';
@@ -983,10 +1229,51 @@ async function loadBrowsePools(){
 async function requestJoin(poolId){
     const doc=await db.collection('pools').doc(poolId).get();
     const pool=doc.data();
+
+    // Show disclaimer based on pool type
+    let disclaimer='';
+    if(pool.type==='bid'){
+        disclaimer='BID POOL RULES:\n\n'+
+        '1. The lowest bidder wins the pool amount each month.\n'+
+        '2. Pool total = Members × Monthly amount.\n'+
+        '3. Commission ('+pool.commission+'%) is deducted from the pool.\n'+
+        '4. Remaining difference is distributed as dividend to all members.\n'+
+        '5. Each member can win only ONCE during the chit.\n'+
+        '6. Monthly payment is mandatory regardless of bidding.\n'+
+        '7. Late payments affect your rating.\n'+
+        '8. Defaulting may result in removal from the pool.\n\n'+
+        'Do you agree to these terms and want to join?';
+    } else {
+        disclaimer='LOTTERY POOL RULES:\n\n'+
+        '1. Winner is selected RANDOMLY each month by lottery draw.\n'+
+        '2. Pool total = Members × Monthly amount.\n'+
+        '3. Commission ('+pool.commission+'%) is deducted from the pool.\n'+
+        '4. Winner receives the full pool amount minus commission.\n'+
+        '5. Each member can win only ONCE during the chit.\n'+
+        '6. Monthly payment is mandatory for all members.\n'+
+        '7. Late payments affect your rating.\n'+
+        '8. Defaulting may result in removal from the pool.\n\n'+
+        'Do you agree to these terms and want to join?';
+    }
+
+    if(!confirm(disclaimer)) return;
+
     const requests=pool.joinRequests||[];
     if(requests.find(r=>r.email===CU.email)){alert('Already requested.');return;}
     requests.push({uid:CU.uid,name:UD.name,email:CU.email,phone:UD.phone||'',requestedAt:new Date().toISOString()});
     await db.collection('pools').doc(poolId).update({joinRequests:requests});
+
+    // Notify agent about join request
+    await db.collection('notifications').add({
+        type:'join_request',
+        message:UD.name+' has requested to join "'+pool.name+'"',
+        poolId,
+        targetUid:pool.agentId,
+        forAdmin:true,
+        read:false,
+        createdAt:new Date().toISOString()
+    });
+
     alert('Join request sent! The agent will review it.');
     loadBrowsePools();
 }
