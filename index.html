@@ -1463,7 +1463,8 @@ function renderUploadBox(poolId,month,pool){
     const boxId='upload_'+poolId+'_'+month;
     const qrHtml=pool.qrUrl?`<div style="text-align:center;margin:10px 0"><p style="font-size:11px;font-weight:600;color:#006064;margin-bottom:6px">📱 Scan QR to Pay:</p><img src="${pool.qrUrl}" style="max-width:180px;border-radius:8px;border:2px solid #e0e0e0" alt="Payment QR"></div>`:'';
     const upiHtml=pool.upiId?`<p style="text-align:center;font-size:12px;margin:6px 0"><b>UPI ID:</b> <span style="color:#006064;font-weight:600">${pool.upiId}</span></p>`:'';
-    return `${qrHtml}${upiHtml}
+    const upiBtn=pool.upiId?`<a href="upi://pay?pa=${pool.upiId}&pn=${encodeURIComponent(pool.agentName||'Chittly')}&am=${pool.monthlyAmt}&cu=INR&tn=${encodeURIComponent(pool.name+' Month '+month+' Payment')}" style="display:block;text-align:center;background:#5C6BC0;color:#fff;padding:12px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;margin:10px 0">💳 Pay Rs ${pool.monthlyAmt.toLocaleString('en-IN')} via UPI</a>`:'';
+    return `${qrHtml}${upiHtml}${upiBtn}
     <div class="payment-proof-box" onclick="document.getElementById('file_${boxId}').click()">
         <div class="upload-icon">📷</div>
         <p>Tap to upload payment proof</p>
