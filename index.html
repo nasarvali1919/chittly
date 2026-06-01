@@ -386,9 +386,22 @@ async function loadPaymentDashboard(){
 
     // Pending payment approvals
     html+=`<div class="card"><h2>Pending Payment Approvals</h2><div id="pendingPayments"></div></div>`;
+
+    // Admin: Mark payment directly
+    html+=`<div class="card"><h2>Mark Payment Directly</h2>
+    <p class="note" style="margin-bottom:8px">For members who paid directly (cash/UPI) and cannot upload proof:</p>
+    <div class="row"><label>Pool:</label><select id="directPayPool" onchange="loadDirectPayMembers()">`;
+    poolSnap.forEach(doc=>{const p=doc.data();html+=`<option value="${doc.id}">${p.name}</option>`;});
+    html+=`</select></div>
+    <div class="row"><label>Member:</label><select id="directPayMember"></select></div>
+    <div class="row"><label>Month:</label><input type="number" id="directPayMonth" value="1" min="1" style="max-width:60px"></div>
+    <button class="btn btn-green btn-sm" onclick="markPaymentDirect()">✓ Mark as Paid</button>
+    <div id="directPayMsg" style="margin-top:8px"></div></div>`;
+
     container.innerHTML=html;
     loadPaymentGrid();
     loadPendingPayments();
+    loadDirectPayMembers();
 }
 
 async function loadPaymentGrid(){
@@ -447,6 +460,69 @@ async function loadPendingPayments(){
     container.innerHTML=html;
 }
 
+async function loadDirectPayMembers(){
+    const poolId=document.getElementById('directPayPool')?.value;
+    if(!poolId) return;
+    const poolDoc=await db.collection('pools').doc(poolId).get();
+    const pool=poolDoc.data();
+    const members=pool.members||[];
+    const sel=document.getElementById('directPayMember');
+    if(!sel) return;
+    sel.innerHTML='';
+    members.forEach(m=>{sel.innerHTML+=`<option value="${m.email}" data-name="${m.name}" data-uid="${m.uid}">${m.name}</option>`;});
+}
+
+async function markPaymentDirect(){
+    const poolId=document.getElementById('directPayPool').value;
+    const memberSel=document.getElementById('directPayMember');
+    const month=parseInt(document.getElementById('directPayMonth').value);
+    if(!poolId||!memberSel.value||!month){alert('Fill all fields.');return;}
+
+    const memberEmail=memberSel.value;
+    const memberName=memberSel.options[memberSel.selectedIndex].dataset.name;
+    const memberUid=memberSel.options[memberSel.selectedIndex].dataset.uid;
+    const poolDoc=await db.collection('pools').doc(poolId).get();
+    const pool=poolDoc.data();
+
+    // Check if already paid
+    const existing=await db.collection('payments')
+        .where('poolId','==',poolId)
+        .where('memberEmail','==',memberEmail)
+        .where('month','==',month)
+        .get();
+    if(!existing.empty){alert(memberName+' already has a payment record for Month '+month);return;}
+
+    await db.collection('payments').add({
+        poolId,
+        poolName:pool.name,
+        month,
+        amount:pool.monthlyAmt,
+        memberEmail,
+        memberName,
+        memberUid,
+        agentId:pool.agentId,
+        proofUrl:null,
+        dueDate:new Date().toISOString(),
+        submittedAt:new Date().toISOString(),
+        status:'approved',
+        reviewedAt:new Date().toISOString(),
+        reviewedBy:CU.uid,
+        directPayment:true
+    });
+
+    // Update rating (on-time)
+    const userSnap=await db.collection('users').where('email','==',memberEmail).get();
+    if(!userSnap.empty){
+        const userDoc=userSnap.docs[0];
+        const userData=userDoc.data();
+        const newRating=Math.min(5,(userData.rating||5)+1);
+        await userDoc.ref.update({rating:newRating,onTime:(userData.onTime||0)+1});
+    }
+
+    document.getElementById('directPayMsg').innerHTML='<div class="msg msg-ok">✅ '+memberName+' marked as paid for Month '+month+'</div>';
+    loadPaymentGrid();
+}
+
 // ═══════════════════════════════════════════════════════════
 // APPROVE / REJECT PAYMENT + RATING AUTO-UPDATE
 // ═══════════════════════════════════════════════════════════
@@ -501,7 +577,11 @@ function loadAdminCreatePool(){
     <div class="row"><label>Members:</label><input type="number" id="apMembers" value="10" min="5" max="50" style="max-width:80px"></div>
     <div class="row"><label>Monthly (Rs):</label><select id="apAmt">${[1000,2000,3000,4000,5000,6000,7000,8000,9000,10000,15000,20000].map(v=>'<option value="'+v+'"'+(v===5000?' selected':'')+'>Rs '+v.toLocaleString('en-IN')+'</option>').join('')}</select></div>
     <div class="row"><label>Commission %:</label><input type="number" id="apComm" value="5" step="0.5" style="max-width:80px"></div>
+    <div class="row"><label>Min Bid (Rs):</label><input type="number" id="apMinBid" value="0" min="0" style="max-width:100px"><span style="font-size:10px;color:#777;margin-left:4px">Non-bidders get this amount</span></div>
     <div class="row"><label>Due Date (day):</label><input type="number" id="apDueDay" value="5" min="1" max="28" style="max-width:80px"><span style="font-size:10px;color:#777;margin-left:4px">of each month</span></div>
+    <div class="row"><label>Payment QR:</label><input type="text" id="apQrUrl" placeholder="UPI QR image URL (optional)" style="max-width:300px"></div>
+    <p class="note">Upload QR image to Firebase Storage or paste any image URL. Members will see this for payment.</p>
+    <div class="row"><label>UPI ID:</label><input type="text" id="apUpiId" placeholder="e.g. name@upi" style="max-width:200px"></div>
     <div class="row"><label>Assign Agent:</label><select id="apAgent"><option value="self">Self (Admin)</option></select></div>
     <button class="btn btn-gold btn-full" onclick="adminCreatePool()">Create Pool (Auto-Approved)</button>
     <div id="apMsg"></div></div>`;
@@ -517,7 +597,10 @@ async function adminCreatePool(){
     const numMembers=parseInt(document.getElementById('apMembers').value);
     const monthlyAmt=parseInt(document.getElementById('apAmt').value);
     const commission=parseFloat(document.getElementById('apComm').value);
+    const minBid=parseInt(document.getElementById('apMinBid').value)||0;
     const dueDay=parseInt(document.getElementById('apDueDay').value)||5;
+    const qrUrl=document.getElementById('apQrUrl').value.trim();
+    const upiId=document.getElementById('apUpiId').value.trim();
     const agentSel=document.getElementById('apAgent').value;
     if(!name){alert('Enter pool name.');return;}
 
@@ -525,7 +608,7 @@ async function adminCreatePool(){
     const agentName=agentSel==='self'?UD.name:(await db.collection('users').doc(agentSel).get()).data().name;
 
     await db.collection('pools').add({
-        name,type,numMembers,monthlyAmt,commission,dueDay,
+        name,type,numMembers,monthlyAmt,commission,minBid,dueDay,qrUrl,upiId,
         agentId,agentName,
         approved:true,currentMonth:0,
         members:[],bids:[],joinRequests:[],
@@ -1075,6 +1158,7 @@ async function loadMemberBids(){
         const poolTotal=pool.numMembers*pool.monthlyAmt;
         const comm=poolTotal*pool.commission/100;
         const maxBid=poolTotal-comm;
+        const minBid=pool.minBid||0;
         const hasWon=me&&me.won;
 
         html+=`<div class="card"><h2>${pool.name} — Month ${currentMonth} Bid</h2>`;
@@ -1085,7 +1169,9 @@ async function loadMemberBids(){
         <ul style="font-size:10px;color:#555;margin:6px 0 0 16px;line-height:1.7">
         <li>The <b>lowest bidder</b> wins the pool amount for this month.</li>
         <li>Pool total: Rs ${poolTotal.toLocaleString('en-IN')} | Commission: ${pool.commission}%</li>
+        <li><b>Minimum bid: Rs ${minBid.toLocaleString('en-IN')}</b> (set by Admin)</li>
         <li>Maximum bid allowed: Rs ${maxBid.toLocaleString('en-IN')} (pool minus commission)</li>
+        <li><b>Members who do not submit a bid will be assigned the minimum bid (Rs ${minBid.toLocaleString('en-IN')}) automatically.</b></li>
         <li>The difference (pool - bid - commission) is distributed as dividend to all members.</li>
         <li>Each member can win only <b>once</b> during the entire chit duration.</li>
         <li>Once you bid, it cannot be changed. Agent/Admin selects the lowest bid as winner.</li>
@@ -1106,9 +1192,9 @@ async function loadMemberBids(){
                 const existingBid=bidSnap.docs[0].data();
                 html+=`<div class="msg" style="background:#E3F2FD;color:#1565C0">📝 Your bid for Month ${currentMonth}: <b>Rs ${existingBid.bidAmount.toLocaleString('en-IN')}</b><br><span style="font-size:10px">Submitted: ${new Date(existingBid.submittedAt).toLocaleString('en-IN')}</span></div>`;
             } else {
-                html+=`<div class="row"><label>Your Bid (Rs):</label><input type="number" id="bidInput_${pool.id}" placeholder="Enter amount" min="1" max="${maxBid}" style="max-width:150px"></div>
-                <p class="note">Enter the amount you want to receive. Lower bid = higher chance of winning.</p>
-                <button class="btn btn-gold btn-full" onclick="submitMemberBid('${pool.id}','${pool.name}',${currentMonth},${maxBid})">Submit My Bid</button>`;
+                html+=`<div class="row"><label>Your Bid (Rs):</label><input type="number" id="bidInput_${pool.id}" placeholder="Min: Rs ${minBid.toLocaleString('en-IN')}" min="${minBid}" max="${maxBid}" style="max-width:150px"></div>
+                <p class="note">Enter the amount you want to receive (Min: Rs ${minBid.toLocaleString('en-IN')}). Lower bid = higher chance of winning.</p>
+                <button class="btn btn-gold btn-full" onclick="submitMemberBid('${pool.id}','${pool.name}',${currentMonth},${maxBid},${minBid})">Submit My Bid</button>`;
             }
         }
 
@@ -1124,10 +1210,11 @@ async function loadMemberBids(){
     document.getElementById('m-bid').innerHTML=html;
 }
 
-async function submitMemberBid(poolId,poolName,month,maxBid){
+async function submitMemberBid(poolId,poolName,month,maxBid,minBid){
     const input=document.getElementById('bidInput_'+poolId);
     const bidAmount=parseInt(input.value);
     if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount.');return;}
+    if(minBid && bidAmount<minBid){alert('Bid cannot be less than minimum: Rs '+minBid.toLocaleString('en-IN'));return;}
     if(bidAmount>maxBid){alert('Bid cannot exceed Rs '+maxBid.toLocaleString('en-IN'));return;}
 
     // Check if already bid
@@ -1358,10 +1445,14 @@ async function loadMemberPayment(){
 
 function renderUploadBox(poolId,month,pool){
     const boxId='upload_'+poolId+'_'+month;
-    return `<div class="payment-proof-box" onclick="document.getElementById('file_${boxId}').click()">
+    const qrHtml=pool.qrUrl?`<div style="text-align:center;margin:10px 0"><p style="font-size:11px;font-weight:600;color:#006064;margin-bottom:6px">📱 Scan QR to Pay:</p><img src="${pool.qrUrl}" style="max-width:180px;border-radius:8px;border:2px solid #e0e0e0" alt="Payment QR"></div>`:'';
+    const upiHtml=pool.upiId?`<p style="text-align:center;font-size:12px;margin:6px 0"><b>UPI ID:</b> <span style="color:#006064;font-weight:600">${pool.upiId}</span></p>`:'';
+    return `${qrHtml}${upiHtml}
+    <div class="payment-proof-box" onclick="document.getElementById('file_${boxId}').click()">
         <div class="upload-icon">📷</div>
-        <p>Tap to upload payment proof (photo)</p>
-        <input type="file" id="file_${boxId}" accept="image/*" capture="environment" onchange="uploadPaymentProof('${poolId}',${month},'${pool.name}',${pool.monthlyAmt},this)">
+        <p>Tap to upload payment proof</p>
+        <p style="font-size:10px;color:#999;margin-top:4px">Camera or Gallery (screenshots accepted)</p>
+        <input type="file" id="file_${boxId}" accept="image/*" onchange="uploadPaymentProof('${poolId}',${month},'${pool.name}',${pool.monthlyAmt},this)">
     </div>
     <div id="uploadStatus_${boxId}" style="margin-top:8px"></div>`;
 }
