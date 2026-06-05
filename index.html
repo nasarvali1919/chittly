@@ -853,20 +853,22 @@ async function openPool(poolId){
         <button class="lottery-btn" id="lotteryBtn" onclick="runLottery()">🎰 DRAW WINNER</button></div>
         <div id="lotteryResult"></div></div>`;
     } else {
-        html+=`<div class="card"><h2>Monthly Bid</h2>
-        <div class="row"><label>Winner:</label><select id="bidWinner"></select></div>
-        <div class="row"><label>Bid Amount:</label><input type="number" id="bidAmt" placeholder="Rs"></div>
-        <button class="btn btn-gold btn-full" onclick="processBid()">Process Bid</button>
+        html+=`<div class="card"><h2>Monthly Bid — Month ${month}</h2>
+        <div id="bidSubmissions">Loading bids...</div>
         <div id="bidResult"></div></div>`;
     }
+
+    // Monthly Results (visible to all)
+    html+=`<div class="card"><h2>Monthly Results</h2><div id="monthlyResults">Loading...</div></div>`;
 
     // History
     html+=`<div class="card"><h2>History</h2><div id="poolHistory"></div></div>`;
 
     mc.innerHTML=html;
     loadPoolMembers();
-    if(currentPool.type==='bid') loadBidEligible();
+    if(currentPool.type==='bid') loadBidSubmissions();
     loadPoolHistory();
+    loadMonthlyResults();
 }
 
 async function addToPool(){
@@ -1024,49 +1026,168 @@ async function saveLotteryResult(winner){
     loadPoolHistory();
 }
 
-// BID
-function loadBidEligible(){
+// BID — Show all submitted bids to admin and let them pick winner
+async function loadBidSubmissions(){
+    const container=document.getElementById('bidSubmissions');
+    if(!container) return;
+    const month=(currentPool.currentMonth||0)+1;
+    const poolTotal=currentPool.numMembers*currentPool.monthlyAmt;
+    const comm=poolTotal*currentPool.commission/100;
     const eligible=(currentPool.members||[]).filter(m=>!m.won);
-    let opts='<option value="">-- Select --</option>';
-    eligible.forEach(m=>{opts+=`<option value="${m.email}">${m.name}</option>`;});
-    const sel=document.getElementById('bidWinner');
-    if(sel) sel.innerHTML=opts;
+    const minBid=currentPool.minBid||0;
+
+    // Fetch all member bids for this month
+    const bidSnap=await db.collection('memberBids')
+        .where('poolId','==',currentPoolId)
+        .where('month','==',month)
+        .get();
+
+    let memberBids=[];
+    bidSnap.forEach(doc=>{memberBids.push(doc.data());});
+
+    // Sort by bid amount (lowest first)
+    memberBids.sort((a,b)=>a.bidAmount-b.bidAmount);
+
+    let html=`<p style="font-size:11px;margin-bottom:8px"><b>Pool Total:</b> Rs ${poolTotal.toLocaleString('en-IN')} | <b>Commission:</b> Rs ${comm.toLocaleString('en-IN')} (${currentPool.commission}%) | <b>Min Bid:</b> Rs ${minBid.toLocaleString('en-IN')}</p>`;
+    html+=`<p style="font-size:11px;margin-bottom:8px"><b>Eligible:</b> ${eligible.length} members | <b>Bids received:</b> ${memberBids.length}</p>`;
+
+    if(memberBids.length>0){
+        html+=`<table class="tbl"><tr><th>#</th><th>Member</th><th>Bid Amount</th><th>Time</th>${(UR==='admin'||UR==='agent')?'<th>Action</th>':''}</tr>`;
+        memberBids.forEach((b,i)=>{
+            const isLowest=i===0;
+            const highlight=isLowest?'style="background:#E8F5E9;font-weight:700"':'';
+            html+=`<tr ${highlight}><td>${i+1}</td><td>${b.memberName}${isLowest?' ⭐':''}</td><td>Rs ${b.bidAmount.toLocaleString('en-IN')}</td><td>${new Date(b.submittedAt).toLocaleDateString('en-IN')}</td>`;
+            if(UR==='admin'||UR==='agent'){
+                html+=`<td><button class="btn btn-green btn-sm" onclick="selectBidWinner('${b.memberEmail}','${b.memberName}',${b.bidAmount})">Select Winner</button></td>`;
+            }
+            html+=`</tr>`;
+        });
+        html+=`</table>`;
+
+        // Show members who haven't bid (they get minBid)
+        const biddedEmails=memberBids.map(b=>b.memberEmail);
+        const nonBidders=eligible.filter(m=>!biddedEmails.includes(m.email));
+        if(nonBidders.length>0){
+            html+=`<p style="font-size:11px;color:#E65100;margin-top:8px"><b>Non-bidders (will get min bid Rs ${minBid.toLocaleString('en-IN')}):</b> ${nonBidders.map(m=>m.name).join(', ')}</p>`;
+        }
+    } else {
+        html+=`<p class="note">No bids submitted yet for Month ${month}.</p>`;
+        // Manual fallback for admin
+        if(UR==='admin'||UR==='agent'){
+            html+=`<div class="row" style="margin-top:8px"><label>Winner:</label><select id="bidWinnerManual">`;
+            eligible.forEach(m=>{html+=`<option value="${m.email}" data-name="${m.name}">${m.name}</option>`;});
+            html+=`</select></div>`;
+            html+=`<div class="row"><label>Bid Amt:</label><input type="number" id="bidAmtManual" placeholder="Rs" style="max-width:120px"></div>`;
+            html+=`<button class="btn btn-gold btn-sm" onclick="manualBidWinner()">Process Manually</button>`;
+        }
+    }
+    container.innerHTML=html;
 }
 
-async function processBid(){
-    const winnerEmail=document.getElementById('bidWinner').value;
-    const bidAmt=parseInt(document.getElementById('bidAmt').value);
-    if(!winnerEmail){alert('Select winner.');return;}
-    const pool=currentPool.numMembers*currentPool.monthlyAmt;
-    const comm=pool*currentPool.commission/100;
-    if(!bidAmt||bidAmt>pool-comm){alert('Invalid bid amount. Max: Rs '+(pool-comm));return;}
+async function selectBidWinner(winnerEmail,winnerName,bidAmt){
+    if(!confirm('Declare '+winnerName+' as winner with bid Rs '+bidAmt.toLocaleString('en-IN')+'?')) return;
+    await finalizeBidWinner(winnerEmail,winnerName,bidAmt);
+}
 
+async function manualBidWinner(){
+    const sel=document.getElementById('bidWinnerManual');
+    const winnerEmail=sel.value;
+    const winnerName=sel.options[sel.selectedIndex].dataset.name;
+    const bidAmt=parseInt(document.getElementById('bidAmtManual').value);
+    if(!winnerEmail||!bidAmt){alert('Select winner and enter bid amount.');return;}
+    await finalizeBidWinner(winnerEmail,winnerName,bidAmt);
+}
+
+async function finalizeBidWinner(winnerEmail,winnerName,bidAmt){
     const month=(currentPool.currentMonth||0)+1;
-    const dividend=Math.round((pool-bidAmt-comm)/currentPool.numMembers);
+    const poolTotal=currentPool.numMembers*currentPool.monthlyAmt;
+    const comm=poolTotal*currentPool.commission/100;
+    const numMembers=currentPool.numMembers;
+
+    // Dividend = (Pool - Bid - Commission) / Total Members
+    const dividend=Math.round((poolTotal-bidAmt-comm)/numMembers);
     const netPayment=currentPool.monthlyAmt-dividend;
 
+    // Mark winner
     const members=currentPool.members;
     const idx=members.findIndex(m=>m.email===winnerEmail);
-    const winnerName=members[idx].name;
+    if(idx<0){alert('Member not found.');return;}
     members[idx].won=true;
     members[idx].wonMonth=month;
 
+    // Save bid result
     const bids=currentPool.bids||[];
-    bids.push({month,winner:winnerName,type:'bid',bidAmt,dividend,netPayment,commission:comm,date:new Date().toISOString()});
+    bids.push({
+        month,
+        winner:winnerName,
+        winnerEmail,
+        type:'bid',
+        bidAmt,
+        poolTotal,
+        commission:comm,
+        dividend,
+        netPayment,
+        numMembers,
+        date:new Date().toISOString()
+    });
 
     await db.collection('pools').doc(currentPoolId).update({members,bids,currentMonth:month});
-    currentPool.members=members;currentPool.bids=bids;currentPool.currentMonth=month;
+    currentPool.members=members;
+    currentPool.bids=bids;
+    currentPool.currentMonth=month;
 
-    document.getElementById('bidResult').innerHTML=`<div class="msg msg-ok"><b>Winner: ${winnerName}</b><br>Bid: Rs ${bidAmt.toLocaleString('en-IN')} | Dividend: Rs ${dividend}/member | Net: Rs ${netPayment}/member</div>`;
-    loadPoolMembers();loadBidEligible();loadPoolHistory();
+    // Notify all members about the result
+    for(const m of members){
+        const isWinner=m.email===winnerEmail;
+        const msg=isWinner
+            ?'🎉 Congratulations! You won the bid for "'+currentPool.name+'" Month '+month+'! Bid: Rs '+bidAmt.toLocaleString('en-IN')
+            :'📢 '+currentPool.name+' Month '+month+' Result: Winner is '+winnerName+' (Bid: Rs '+bidAmt.toLocaleString('en-IN')+'). Your dividend: Rs '+dividend.toLocaleString('en-IN')+'. Net payment: Rs '+netPayment.toLocaleString('en-IN');
+        await db.collection('notifications').add({
+            type:'bid_result',
+            message:msg,
+            poolId:currentPoolId,
+            targetUid:m.uid,
+            forAdmin:false,
+            read:false,
+            createdAt:new Date().toISOString()
+        });
+    }
+
+    document.getElementById('bidResult').innerHTML=`<div class="msg msg-ok"><b>🎉 Winner: ${winnerName}</b><br>Bid: Rs ${bidAmt.toLocaleString('en-IN')} | Dividend: Rs ${dividend}/member | Net Payment: Rs ${netPayment}/member<br><span style="font-size:10px">All members notified.</span></div>`;
+    loadPoolMembers();
+    loadBidSubmissions();
+    loadPoolHistory();
+    loadMonthlyResults();
+}
+
+// Monthly Results — visible to ALL (admin, agent, members when they open pool)
+async function loadMonthlyResults(){
+    const container=document.getElementById('monthlyResults');
+    if(!container) return;
+    const bids=currentPool.bids||[];
+    if(bids.length===0){container.innerHTML='<p class="note">No results yet.</p>';return;}
+
+    let html='<table class="tbl"><tr><th>Month</th><th>Winner</th><th>Bid</th><th>Dividend</th><th>Net Payment</th></tr>';
+    bids.forEach(b=>{
+        if(b.type==='bid'){
+            html+=`<tr><td>${b.month}</td><td><b>${b.winner}</b></td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td style="color:#2E7D32;font-weight:600">Rs ${(b.dividend||0).toLocaleString('en-IN')}</td><td>Rs ${(b.netPayment||b.bidAmt).toLocaleString('en-IN')}</td></tr>`;
+        } else {
+            html+=`<tr><td>${b.month}</td><td><b>${b.winner}</b></td><td colspan="3">Lottery — Payout: Rs ${(b.payout||0).toLocaleString('en-IN')}</td></tr>`;
+        }
+    });
+    html+=`</table>`;
+    container.innerHTML=html;
 }
 
 function loadPoolHistory(){
     const bids=currentPool.bids||[];
-    let html='<table class="tbl"><tr><th>M</th><th>Winner</th><th>Type</th><th>Amount</th></tr>';
+    let html='<table class="tbl"><tr><th>M</th><th>Winner</th><th>Type</th><th>Bid/Payout</th><th>Dividend</th><th>Net Pay</th></tr>';
     bids.forEach(b=>{
-        const amt=b.type==='lottery'?'Rs '+b.payout.toLocaleString('en-IN'):'Rs '+b.bidAmt.toLocaleString('en-IN');
-        html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>${b.type}</td><td>${amt}</td></tr>`;
+        if(b.type==='lottery'){
+            html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>Lottery</td><td>Rs ${(b.payout||0).toLocaleString('en-IN')}</td><td>—</td><td>—</td></tr>`;
+        } else {
+            html+=`<tr><td>${b.month}</td><td>${b.winner}</td><td>Bid</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td style="color:#2E7D32">Rs ${(b.dividend||0).toLocaleString('en-IN')}</td><td>Rs ${(b.netPayment||0).toLocaleString('en-IN')}</td></tr>`;
+        }
     });
     html+='</table>';
     const el=document.getElementById('poolHistory');
@@ -1139,8 +1260,10 @@ async function loadMyPools(){
         // Show last result
         if(pool.bids&&pool.bids.length>0){
             const last=pool.bids[pool.bids.length-1];
-            html+=`<div class="msg msg-ok" style="margin-top:8px"><b>Last Result (Month ${last.month}):</b> Winner: ${last.winner}`;
-            if(last.type==='bid') html+=` | Your payment: Rs ${(last.netPayment||pool.monthlyAmt).toLocaleString('en-IN')}`;
+            html+=`<div class="msg msg-ok" style="margin-top:8px"><b>Month ${last.month} Result:</b> Winner: ${last.winner}`;
+            if(last.type==='bid'){
+                html+=`<br>Bid: Rs ${last.bidAmt.toLocaleString('en-IN')} | <b>Your Dividend: Rs ${(last.dividend||0).toLocaleString('en-IN')}</b> | Net Payment: Rs ${(last.netPayment||pool.monthlyAmt).toLocaleString('en-IN')}`;
+            }
             html+=`</div>`;
         }
         html+=`</div>`;
