@@ -417,20 +417,22 @@ async function loadPaymentGrid(){
     const poolDoc=await db.collection('pools').doc(poolId).get();
     const pool=poolDoc.data();
     const members=pool.members||[];
-    const currentMonth=pool.currentMonth||0;
+    const completedMonth=pool.currentMonth||0;
+    const payableMonth=completedMonth+1; // Current month members should be paying
 
     // Get all payments for this pool
     const paySnap=await db.collection('payments').where('poolId','==',poolId).get();
     const payments={};
     paySnap.forEach(doc=>{const p=doc.data();const key=p.memberEmail+'_'+p.month;payments[key]=p;});
 
-    let html=`<table class="tbl"><tr><th>Member</th>`;
-    for(let m=1;m<=Math.max(currentMonth,1);m++) html+=`<th>M${m}</th>`;
+    let html=`<p style="font-size:11px;margin-bottom:8px;color:#006064"><b>Current payable month: ${payableMonth}</b> (Months completed: ${completedMonth})</p>`;
+    html+=`<table class="tbl"><tr><th>Member</th>`;
+    for(let m=1;m<=payableMonth;m++) html+=`<th${m===payableMonth?' style="background:#FF6F00"':''}>M${m}${m===payableMonth?' ←':''}</th>`;
     html+=`</tr>`;
 
     members.forEach(mem=>{
         html+=`<tr><td style="text-align:left;font-weight:600">${mem.name}</td>`;
-        for(let m=1;m<=Math.max(currentMonth,1);m++){
+        for(let m=1;m<=payableMonth;m++){
             const key=mem.email+'_'+m;
             const pay=payments[key];
             if(!pay) html+=`<td><span class="badge b-unpaid">Unpaid</span></td>`;
@@ -1245,6 +1247,8 @@ async function loadMyPools(){
     for(const pool of myPools){
         const me=(pool.members||[]).find(m=>m.email===CU.email);
         const status=me&&me.won?'<span class="badge b-won">Won Month '+me.wonMonth+'</span>':'<span class="badge b-pending">Not yet won</span>';
+        const completedMonth=pool.currentMonth||0;
+        const payableMonth=completedMonth+1;
         const dueDay=pool.dueDay||5;
         const now=new Date();
         const dueDate=new Date(now.getFullYear(),now.getMonth(),dueDay);
@@ -1253,18 +1257,29 @@ async function loadMyPools(){
         const dueDateStr=dueDate.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
 
         html+=`<div class="card"><h2>${pool.name}</h2>
-        <div class="due-date-box"><div class="icon">📅</div><div class="info"><b>Due: ${dueDateStr}</b>${daysLeft<=3?'<span style="color:#FFD700;font-weight:700"> ('+daysLeft+' days left!)</span>':' ('+daysLeft+' days left)'}</div></div>
-        <div class="sg"><div class="sc"><div class="v">Rs ${pool.monthlyAmt.toLocaleString('en-IN')}</div><div class="l">Monthly</div></div><div class="sc"><div class="v">${pool.currentMonth||0}/${pool.numMembers}</div><div class="l">Month</div></div></div>
-        <p style="font-size:12px"><b>Type:</b> ${pool.type} | <b>Status:</b> ${status}</p>`;
+        <div class="due-date-box"><div class="icon">📅</div><div class="info"><b>Due: ${dueDateStr} (Month ${payableMonth})</b>${daysLeft<=3?'<span style="color:#FFD700;font-weight:700"> ('+daysLeft+' days left!)</span>':' ('+daysLeft+' days left)'}</div></div>
+        <div class="sg"><div class="sc"><div class="v">Rs ${pool.monthlyAmt.toLocaleString('en-IN')}</div><div class="l">Monthly</div></div><div class="sc"><div class="v">${completedMonth}/${pool.numMembers}</div><div class="l">Months Done</div></div></div>
+        <p style="font-size:12px"><b>Type:</b> ${pool.type} | <b>Status:</b> ${status} | <b>Next Payment:</b> Month ${payableMonth}</p>`;
 
-        // Show last result
-        if(pool.bids&&pool.bids.length>0){
-            const last=pool.bids[pool.bids.length-1];
-            html+=`<div class="msg msg-ok" style="margin-top:8px"><b>Month ${last.month} Result:</b> Winner: ${last.winner}`;
-            if(last.type==='bid'){
-                html+=`<br>Bid: Rs ${last.bidAmt.toLocaleString('en-IN')} | <b>Your Dividend: Rs ${(last.dividend||0).toLocaleString('en-IN')}</b> | Net Payment: Rs ${(last.netPayment||pool.monthlyAmt).toLocaleString('en-IN')}`;
-            }
-            html+=`</div>`;
+        // Show ALL previous results (bid/won history)
+        const bids=pool.bids||[];
+        if(bids.length>0){
+            html+=`<div style="margin-top:10px;background:#f9f9f9;border-radius:8px;padding:10px">
+            <b style="font-size:11px;color:#006064">📊 Past Results:</b>
+            <table class="tbl" style="margin-top:6px"><tr><th>Month</th><th>Winner</th>`;
+            if(pool.type==='bid') html+=`<th>Bid</th><th>Dividend</th><th>Net Pay</th>`;
+            else html+=`<th>Payout</th>`;
+            html+=`</tr>`;
+            bids.forEach(b=>{
+                const isMe=b.winnerEmail===CU.email||b.winner===UD.name;
+                const highlight=isMe?'style="background:#E8F5E9;font-weight:700"':'';
+                if(b.type==='bid'){
+                    html+=`<tr ${highlight}><td>M${b.month}</td><td>${b.winner}${isMe?' 🎉':''}</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td style="color:#2E7D32">Rs ${(b.dividend||0).toLocaleString('en-IN')}</td><td>Rs ${(b.netPayment||0).toLocaleString('en-IN')}</td></tr>`;
+                } else {
+                    html+=`<tr ${highlight}><td>M${b.month}</td><td>${b.winner}${isMe?' 🎉':''}</td><td>Rs ${(b.payout||0).toLocaleString('en-IN')}</td></tr>`;
+                }
+            });
+            html+=`</table></div>`;
         }
         html+=`</div>`;
     }
@@ -1506,6 +1521,7 @@ async function requestJoin(poolId){
 
 // ═══════════════════════════════════════════════════════════
 // MEMBER PAYMENT — Upload proof, track status
+// Shows the NEXT month to pay (currentMonth + 1) and all unpaid previous months
 // ═══════════════════════════════════════════════════════════
 async function loadMemberPayment(){
     const snap=await db.collection('pools').where('approved','==',true).get();
@@ -1525,56 +1541,107 @@ async function loadMemberPayment(){
     }
 
     for(const pool of myPools){
-        const currentMonth=pool.currentMonth||1;
+        // The month the member needs to pay for is currentMonth + 1
+        // (currentMonth = last completed bid/lottery month)
+        // If currentMonth is 0 (no bid done yet), they still need to pay month 1
+        const completedMonth=pool.currentMonth||0;
+        const payableMonth=completedMonth+1; // The upcoming month to pay for
+        const totalMonths=pool.numMembers;
         const dueDay=pool.dueDay||5;
         const now=new Date();
         const dueDate=new Date(now.getFullYear(),now.getMonth(),dueDay);
         if(now>dueDate) dueDate.setMonth(dueDate.getMonth()+1);
         const dueDateStr=dueDate.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
 
-        // Check existing payment for current month
-        const paySnap=await db.collection('payments')
+        // Get ALL payments by this member for this pool
+        const allPaySnap=await db.collection('payments')
             .where('poolId','==',pool.id)
             .where('memberEmail','==',CU.email)
-            .where('month','==',currentMonth)
             .get();
+        const paymentsByMonth={};
+        allPaySnap.forEach(doc=>{
+            const p=doc.data();
+            paymentsByMonth[p.month]=p;
+        });
 
-        let payStatus='unpaid';
-        let existingPay=null;
-        if(!paySnap.empty){
-            existingPay=paySnap.docs[0].data();
-            payStatus=existingPay.status;
-        }
+        html+=`<div class="card"><h2>${pool.name} — Payment</h2>
+        <div class="due-date-box"><div class="icon">📅</div><div class="info"><b>Due: ${dueDateStr}</b><br>Amount: Rs ${pool.monthlyAmt.toLocaleString('en-IN')} | Month ${payableMonth} of ${totalMonths}</div></div>`;
 
-        html+=`<div class="card"><h2>${pool.name} — Month ${currentMonth} Payment</h2>
-        <div class="due-date-box"><div class="icon">📅</div><div class="info"><b>Due: ${dueDateStr}</b><br>Amount: Rs ${pool.monthlyAmt.toLocaleString('en-IN')}</div></div>`;
+        // Show payment status for the CURRENT payable month
+        const currentPay=paymentsByMonth[payableMonth];
+        const payStatus=currentPay?currentPay.status:'unpaid';
+
+        html+=`<h3 style="font-size:13px;color:#006064;margin:12px 0 8px">Month ${payableMonth} Payment</h3>`;
 
         if(payStatus==='approved'){
-            html+=`<div class="msg msg-ok" style="margin-top:10px">✅ Payment approved for Month ${currentMonth}</div>`;
+            html+=`<div class="msg msg-ok" style="margin-top:10px">✅ Payment approved for Month ${payableMonth}</div>`;
         } else if(payStatus==='pending'){
             html+=`<div class="msg" style="background:#FFF3E0;color:#E65100;margin-top:10px">⏳ Payment proof submitted — awaiting review</div>`;
-            if(existingPay&&existingPay.proofUrl){
-                html+=`<img src="${existingPay.proofUrl}" class="proof-img" alt="Payment proof">`;
+            if(currentPay&&currentPay.proofUrl){
+                html+=`<img src="${currentPay.proofUrl}" class="proof-img" alt="Payment proof">`;
             }
         } else if(payStatus==='rejected'){
             html+=`<div class="msg msg-err" style="margin-top:10px">❌ Payment was rejected. Please re-upload correct proof.</div>`;
-            html+=renderUploadBox(pool.id,currentMonth,pool);
+            html+=renderUploadBox(pool.id,payableMonth,pool);
         } else {
-            html+=renderUploadBox(pool.id,currentMonth,pool);
+            html+=renderUploadBox(pool.id,payableMonth,pool);
         }
+
+        // Show any UNPAID previous months (months 1 to payableMonth-1 that are not approved)
+        let unpaidMonths=[];
+        for(let m=1;m<payableMonth;m++){
+            const prev=paymentsByMonth[m];
+            if(!prev || prev.status==='rejected'){
+                unpaidMonths.push(m);
+            }
+        }
+        if(unpaidMonths.length>0){
+            html+=`<div style="background:#FFEBEE;border:1px solid #EF9A9A;border-radius:8px;padding:10px;margin-top:12px">
+            <b style="font-size:11px;color:#C62828">⚠️ Overdue Payments:</b>
+            <p style="font-size:11px;color:#555;margin-top:4px">You have unpaid months: ${unpaidMonths.map(m=>'Month '+m).join(', ')}</p></div>`;
+            // Allow uploading for each unpaid previous month
+            for(const m of unpaidMonths){
+                html+=`<div style="border:1px solid #e0e0e0;border-radius:8px;padding:10px;margin-top:8px">
+                <p style="font-size:12px;font-weight:600;color:#D32F2F">Month ${m} — Overdue</p>`;
+                html+=renderUploadBox(pool.id,m,pool);
+                html+=`</div>`;
+            }
+        }
+
         html+=`</div>`;
 
-        // Payment history for this pool
-        const histSnap=await db.collection('payments')
-            .where('poolId','==',pool.id)
-            .where('memberEmail','==',CU.email)
-            .get();
-        if(!histSnap.empty){
-            html+=`<div class="card"><h2>${pool.name} — Payment History</h2><table class="tbl"><tr><th>Month</th><th>Status</th><th>Date</th></tr>`;
-            histSnap.forEach(doc=>{
-                const p=doc.data();
-                const badge=p.status==='approved'?'<span class="badge b-paid">Paid</span>':p.status==='pending'?'<span class="badge b-review">Review</span>':'<span class="badge b-rejected">Rejected</span>';
-                html+=`<tr><td>${p.month}</td><td>${badge}</td><td>${new Date(p.submittedAt).toLocaleDateString('en-IN')}</td></tr>`;
+        // Payment history grid for all months (shows complete picture)
+        html+=`<div class="card"><h2>${pool.name} — Payment History</h2>`;
+        html+=`<div class="payment-grid">`;
+        for(let m=1;m<=Math.max(payableMonth,completedMonth);m++){
+            const pay=paymentsByMonth[m];
+            let cellClass='unpaid';
+            let cellText='Unpaid';
+            if(pay){
+                if(pay.status==='approved'){cellClass='paid';cellText='✅ Paid';}
+                else if(pay.status==='pending'){cellClass='review';cellText='⏳ Review';}
+                else if(pay.status==='rejected'){cellClass='rejected';cellText='❌ Rejected';}
+            }
+            const isCurrentMonth=m===payableMonth;
+            html+=`<div class="payment-cell ${cellClass}" ${isCurrentMonth?'style="border-width:3px"':''}>
+            <div style="font-weight:600;margin-bottom:3px">Month ${m}</div>
+            <div style="font-size:10px">${cellText}</div>
+            ${isCurrentMonth?'<div style="font-size:9px;color:#006064;margin-top:2px">← Current</div>':''}
+            </div>`;
+        }
+        html+=`</div></div>`;
+
+        // Bid/Lottery results history (previous months data)
+        const bids=pool.bids||[];
+        if(bids.length>0){
+            html+=`<div class="card"><h2>${pool.name} — Bid/Lottery History</h2>
+            <table class="tbl"><tr><th>Month</th><th>Winner</th><th>Type</th><th>Bid/Payout</th><th>Dividend</th></tr>`;
+            bids.forEach(b=>{
+                if(b.type==='bid'){
+                    html+=`<tr><td>${b.month}</td><td><b>${b.winner}</b></td><td>Bid</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td style="color:#2E7D32">Rs ${(b.dividend||0).toLocaleString('en-IN')}</td></tr>`;
+                } else {
+                    html+=`<tr><td>${b.month}</td><td><b>${b.winner}</b></td><td>Lottery</td><td colspan="2">Payout: Rs ${(b.payout||0).toLocaleString('en-IN')}</td></tr>`;
+                }
             });
             html+=`</table></div>`;
         }
