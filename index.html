@@ -830,7 +830,7 @@ async function openPool(poolId){
 
     html+=`<div class="card"><h2>${currentPool.name} — Month ${month}</h2>
     <div class="sg"><div class="sc"><div class="v">Rs ${pool.toLocaleString('en-IN')}</div><div class="l">Pool</div></div><div class="sc"><div class="v">${currentPool.type}</div><div class="l">Type</div></div></div>
-    <p class="note">Members: ${(currentPool.members||[]).length}/${currentPool.numMembers} | Commission: ${currentPool.commission}% | Due: ${dueDay}th of each month | Min Bid: Rs ${(currentPool.minBid||0).toLocaleString('en-IN')}</p></div>`;
+    <p class="note">Members: ${(currentPool.members||[]).length}/${currentPool.numMembers} | Commission: ${currentPool.commission}% | Due: ${dueDay}th of each month | Max Bid: Rs ${(currentPool.numMembers*currentPool.monthlyAmt - currentPool.numMembers*currentPool.monthlyAmt*currentPool.commission/100).toLocaleString('en-IN')}</p></div>`;
 
     // Admin: Pool Settings (min bid, QR, UPI)
     if(UR==='admin'){
@@ -1078,17 +1078,16 @@ async function loadAdminMemberBid(){
     container.innerHTML=`
     <div style="background:#FFF8E1;border:1px solid #FFD54F;border-radius:8px;padding:10px;margin-bottom:10px">
     <b style="font-size:11px;color:#F57F17">You are a member of this pool. Submit your bid below:</b>
-    <p style="font-size:10px;color:#555;margin-top:4px">Min: Rs ${minBid.toLocaleString('en-IN')} | Max: Rs ${maxBid.toLocaleString('en-IN')}</p></div>
-    <div class="row"><label>Your Bid (Rs):</label><input type="number" id="adminBidInput" placeholder="Min: Rs ${minBid.toLocaleString('en-IN')}" min="${minBid}" max="${maxBid}" style="max-width:150px"></div>
-    <button class="btn btn-gold" onclick="submitAdminBid(${month},${maxBid},${minBid})">Submit My Bid</button>
+    <p style="font-size:10px;color:#555;margin-top:4px">You can bid any amount from Rs 1 up to Rs ${maxBid.toLocaleString('en-IN')}</p></div>
+    <div class="row"><label>Your Bid (Rs):</label><input type="number" id="adminBidInput" placeholder="Max: Rs ${maxBid.toLocaleString('en-IN')}" min="1" max="${maxBid}" style="max-width:150px"></div>
+    <button class="btn btn-gold" onclick="submitAdminBid(${month},${maxBid})">Submit My Bid</button>
     <div id="adminBidMsg" style="margin-top:8px"></div>`;
 }
 
-async function submitAdminBid(month,maxBid,minBid){
+async function submitAdminBid(month,maxBid){
     const input=document.getElementById('adminBidInput');
     const bidAmount=parseInt(input.value);
-    if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount.');return;}
-    if(minBid && bidAmount<minBid){alert('Bid cannot be less than minimum: Rs '+minBid.toLocaleString('en-IN'));return;}
+    if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount (minimum Rs 1).');return;}
     if(bidAmount>maxBid){alert('Bid cannot exceed Rs '+maxBid.toLocaleString('en-IN'));return;}
 
     // Check if already bid
@@ -1135,7 +1134,7 @@ async function loadBidSubmissions(){
     // Sort by bid amount (lowest first)
     memberBids.sort((a,b)=>a.bidAmount-b.bidAmount);
 
-    let html=`<p style="font-size:11px;margin-bottom:8px"><b>Pool Total:</b> Rs ${poolTotal.toLocaleString('en-IN')} | <b>Commission:</b> Rs ${comm.toLocaleString('en-IN')} (${currentPool.commission}%) | <b>Min Bid:</b> Rs ${minBid.toLocaleString('en-IN')}</p>`;
+    let html=`<p style="font-size:11px;margin-bottom:8px"><b>Pool Total:</b> Rs ${poolTotal.toLocaleString('en-IN')} | <b>Commission:</b> Rs ${comm.toLocaleString('en-IN')} (${currentPool.commission}%) | <b>Max Bid:</b> Rs ${maxBid.toLocaleString('en-IN')}</p>`;
     html+=`<p style="font-size:11px;margin-bottom:8px"><b>Eligible:</b> ${eligible.length} members | <b>Bids received:</b> ${memberBids.length}</p>`;
 
     if(memberBids.length>0){
@@ -1155,7 +1154,7 @@ async function loadBidSubmissions(){
         const biddedEmails=memberBids.map(b=>b.memberEmail);
         const nonBidders=eligible.filter(m=>!biddedEmails.includes(m.email));
         if(nonBidders.length>0){
-            html+=`<p style="font-size:11px;color:#E65100;margin-top:8px"><b>Non-bidders (will get min bid Rs ${minBid.toLocaleString('en-IN')}):</b> ${nonBidders.map(m=>m.name).join(', ')}</p>`;
+            html+=`<p style="font-size:11px;color:#E65100;margin-top:8px"><b>Non-bidders (assigned max bid Rs ${maxBid.toLocaleString('en-IN')}):</b> ${nonBidders.map(m=>m.name).join(', ')}</p>`;
         }
     } else {
         html+=`<p class="note">No bids submitted yet for Month ${month}.</p>`;
@@ -1408,9 +1407,9 @@ async function loadMemberBids(){
         <ul style="font-size:10px;color:#555;margin:6px 0 0 16px;line-height:1.7">
         <li>The <b>lowest bidder</b> wins the pool amount for this month.</li>
         <li>Pool total: Rs ${poolTotal.toLocaleString('en-IN')} | Commission: ${pool.commission}%</li>
-        <li><b>Minimum bid: Rs ${minBid.toLocaleString('en-IN')}</b> (set by Admin)</li>
-        <li>Maximum bid allowed: Rs ${maxBid.toLocaleString('en-IN')} (pool minus commission)</li>
-        <li><b>Members who do not submit a bid will be assigned the minimum bid (Rs ${minBid.toLocaleString('en-IN')}) automatically.</b></li>
+        <li><b>Maximum bid allowed: Rs ${maxBid.toLocaleString('en-IN')}</b> (pool minus commission)</li>
+        <li>You can bid any amount from Rs 1 up to Rs ${maxBid.toLocaleString('en-IN')}.</li>
+        <li><b>Members who do not submit a bid will be assigned the maximum bid (Rs ${maxBid.toLocaleString('en-IN')}) automatically.</b></li>
         <li>The difference (pool - bid - commission) is distributed as dividend to all members.</li>
         <li>Each member can win only <b>once</b> during the entire chit duration.</li>
         <li>Once you bid, it cannot be changed. Agent/Admin selects the lowest bid as winner.</li>
@@ -1431,9 +1430,9 @@ async function loadMemberBids(){
                 const existingBid=bidSnap.docs[0].data();
                 html+=`<div class="msg" style="background:#E3F2FD;color:#1565C0">📝 Your bid for Month ${currentMonth}: <b>Rs ${existingBid.bidAmount.toLocaleString('en-IN')}</b><br><span style="font-size:10px">Submitted: ${new Date(existingBid.submittedAt).toLocaleString('en-IN')}</span></div>`;
             } else {
-                html+=`<div class="row"><label>Your Bid (Rs):</label><input type="number" id="bidInput_${pool.id}" placeholder="Min: Rs ${minBid.toLocaleString('en-IN')}" min="${minBid}" max="${maxBid}" style="max-width:150px"></div>
-                <p class="note">Enter the amount you want to receive (Min: Rs ${minBid.toLocaleString('en-IN')}). Lower bid = higher chance of winning.</p>
-                <button class="btn btn-gold btn-full" onclick="submitMemberBid('${pool.id}','${pool.name.replace(/'/g,"\\'")}',${currentMonth},${maxBid},${minBid})">Submit My Bid</button>`;
+                html+=`<div class="row"><label>Your Bid (Rs):</label><input type="number" id="bidInput_${pool.id}" placeholder="Max: Rs ${maxBid.toLocaleString('en-IN')}" min="1" max="${maxBid}" style="max-width:150px"></div>
+                <p class="note">Enter the amount you want to receive (any amount up to Rs ${maxBid.toLocaleString('en-IN')}). Lower bid = higher chance of winning.</p>
+                <button class="btn btn-gold btn-full" onclick="submitMemberBid('${pool.id}','${pool.name.replace(/'/g,"\\'")}',${currentMonth},${maxBid})">Submit My Bid</button>`;
             }
         }
 
@@ -1449,12 +1448,11 @@ async function loadMemberBids(){
     document.getElementById('m-bid').innerHTML=html;
 }
 
-async function submitMemberBid(poolId,poolName,month,maxBid,minBid){
+async function submitMemberBid(poolId,poolName,month,maxBid){
     const input=document.getElementById('bidInput_'+poolId);
     if(!input){alert('Bid input not found. Please refresh and try again.');return;}
     const bidAmount=parseInt(input.value);
-    if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount.');return;}
-    if(minBid && bidAmount<minBid){alert('Bid cannot be less than minimum: Rs '+minBid.toLocaleString('en-IN'));return;}
+    if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount (minimum Rs 1).');return;}
     if(bidAmount>maxBid){alert('Bid cannot exceed Rs '+maxBid.toLocaleString('en-IN'));return;}
 
     try{
