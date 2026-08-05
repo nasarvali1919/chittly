@@ -1730,12 +1730,28 @@ async function loadMyPools(){
         const daysLeft=Math.ceil((dueDate-now)/(1000*60*60*24));
         const dueDateStr=dueDate.toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
 
-        // Calculate accumulated dividends
+        // Calculate accumulated dividends — per member (winners excluded from dividend after their win month)
         const bids=pool.bids||[];
+        const me=(pool.members||[]).find(m=>m.email===CU.email);
+        const myWonMonth=me&&me.won?me.wonMonth:null;
         let totalDividendEarned=0;
-        bids.forEach(b=>{if(b.type==='bid' && b.dividend) totalDividendEarned+=b.dividend;});
+        let bidAmountReceived=0;
+        bids.forEach(b=>{
+            if(b.type==='bid' && b.dividend){
+                // Member only gets dividend if they hadn't won yet at that month
+                // Won in month X means excluded from month X onward
+                if(!myWonMonth || b.month<myWonMonth){
+                    totalDividendEarned+=b.dividend;
+                }
+            }
+            // If this member is the winner, track what they received
+            if(b.winnerEmail===CU.email){
+                bidAmountReceived=b.bidAmt||0;
+            }
+        });
         const totalPaid=completedMonth*pool.monthlyAmt;
         const effectiveContribution=totalPaid-totalDividendEarned;
+        const netPosition=myWonMonth?(bidAmountReceived-totalPaid+totalDividendEarned):(totalDividendEarned-0); // how much better off vs just paying
 
         html+=`<div class="card"><h2>${pool.name}</h2>
         <div class="due-date-box"><div class="icon">📅</div><div class="info"><b>Due: ${dueDateStr} (Month ${payableMonth})</b>${daysLeft<=3?'<span style="color:#FFD700;font-weight:700"> ('+daysLeft+' days left!)</span>':' ('+daysLeft+' days left)'}</div></div>
@@ -1745,16 +1761,23 @@ async function loadMyPools(){
         // Account Summary Card
         if(pool.type==='bid' && bids.length>0){
             html+=`<div style="margin-top:10px;background:linear-gradient(135deg,#E8F5E9,#C8E6C9);border-radius:10px;padding:14px">
-            <b style="font-size:12px;color:#2E7D32">💰 Account Summary</b>
-            <div class="sg" style="margin-top:8px">
-                <div class="sc" style="background:#fff"><div class="v" style="font-size:14px">Rs ${totalPaid.toLocaleString('en-IN')}</div><div class="l">Total Paid (${completedMonth} months × Rs ${pool.monthlyAmt.toLocaleString('en-IN')})</div></div>
-                <div class="sc" style="background:#fff"><div class="v" style="font-size:14px;color:#2E7D32">Rs ${totalDividendEarned.toLocaleString('en-IN')}</div><div class="l">Total Dividend Earned</div></div>
+            <b style="font-size:12px;color:#2E7D32">💰 My Account Summary</b>`;
+            if(myWonMonth){
+                // Winner's view
+                html+=`<div style="background:#FFF8E1;border-radius:8px;padding:8px;margin:8px 0;font-size:11px"><b>🏆 You won in Month ${myWonMonth}</b> — You received Rs ${bidAmountReceived.toLocaleString('en-IN')}. No dividend from Month ${myWonMonth} onward.</div>`;
+            }
+            html+=`<div class="sg" style="margin-top:8px">
+                <div class="sc" style="background:#fff"><div class="v" style="font-size:14px">Rs ${totalPaid.toLocaleString('en-IN')}</div><div class="l">Total Paid (${completedMonth} × Rs ${pool.monthlyAmt.toLocaleString('en-IN')})</div></div>
+                <div class="sc" style="background:#fff"><div class="v" style="font-size:14px;color:#2E7D32">Rs ${totalDividendEarned.toLocaleString('en-IN')}</div><div class="l">Dividend Earned${myWonMonth?' (before win)':''}</div></div>
             </div>
             <div class="sg">
-                <div class="sc" style="background:#fff"><div class="v" style="font-size:14px;color:#006064">Rs ${effectiveContribution.toLocaleString('en-IN')}</div><div class="l">Effective Contribution (Paid − Dividend)</div></div>
-                <div class="sc" style="background:#fff"><div class="v" style="font-size:14px">Rs ${(pool.numMembers*pool.monthlyAmt).toLocaleString('en-IN')}</div><div class="l">Pool Value</div></div>
-            </div>
-            </div>`;
+                <div class="sc" style="background:#fff"><div class="v" style="font-size:14px;color:#006064">Rs ${effectiveContribution.toLocaleString('en-IN')}</div><div class="l">Effective Cost (Paid − Dividend)</div></div>`;
+            if(myWonMonth){
+                html+=`<div class="sc" style="background:#fff"><div class="v" style="font-size:14px;color:#2E7D32">Rs ${bidAmountReceived.toLocaleString('en-IN')}</div><div class="l">Bid Amount Received</div></div>`;
+            } else {
+                html+=`<div class="sc" style="background:#fff"><div class="v" style="font-size:14px">Rs ${(pool.numMembers*pool.monthlyAmt).toLocaleString('en-IN')}</div><div class="l">Pool Value</div></div>`;
+            }
+            html+=`</div></div>`;
         }
 
         // Show ALL previous results (bid/won history) with per-month breakdown
@@ -1762,7 +1785,7 @@ async function loadMyPools(){
             html+=`<div style="margin-top:10px;background:#f9f9f9;border-radius:8px;padding:10px">
             <b style="font-size:11px;color:#006064">📊 Monthly Breakdown (Amount Collected = Rs ${pool.monthlyAmt.toLocaleString('en-IN')}/member/month):</b>
             <table class="tbl" style="margin-top:6px"><tr><th>Month</th><th>Winner</th>`;
-            if(pool.type==='bid') html+=`<th>Bid Amt</th><th>Pool Collected</th><th>Dividend/Member</th><th>Net Paid</th>`;
+            if(pool.type==='bid') html+=`<th>Bid Amt</th><th>Dividend/Eligible</th><th>Your Dividend</th><th>Your Effective Pay</th>`;
             else html+=`<th>Payout</th>`;
             html+=`</tr>`;
             let runningDividend=0;
@@ -1770,14 +1793,19 @@ async function loadMyPools(){
                 const isMe=b.winnerEmail===CU.email||b.winner===UD.name;
                 const highlight=isMe?'style="background:#E8F5E9;font-weight:700"':'';
                 if(b.type==='bid'){
-                    const poolCollected=(b.numMembers||pool.numMembers)*pool.monthlyAmt;
-                    runningDividend+=b.dividend||0;
-                    html+=`<tr ${highlight}><td>M${b.month}</td><td>${b.winner}${isMe?' 🎉':''}</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td>Rs ${poolCollected.toLocaleString('en-IN')}</td><td style="color:#2E7D32">Rs ${(b.dividend||0).toLocaleString('en-IN')}</td><td>Rs ${(b.netPayment||0).toLocaleString('en-IN')}</td></tr>`;
+                    // Did this member get dividend for this month?
+                    const gotDividend=!myWonMonth || b.month<myWonMonth;
+                    const myDiv=gotDividend?(b.dividend||0):0;
+                    const myEffective=pool.monthlyAmt-myDiv;
+                    runningDividend+=myDiv;
+                    const divDisplay=gotDividend?'Rs '+(b.dividend||0).toLocaleString('en-IN'):'<span style="color:#999">—(winner)</span>';
+                    html+=`<tr ${highlight}><td>M${b.month}</td><td>${b.winner}${isMe?' 🎉':''}</td><td>Rs ${b.bidAmt.toLocaleString('en-IN')}</td><td>Rs ${(b.dividend||0).toLocaleString('en-IN')}</td><td style="color:${gotDividend?'#2E7D32':'#999'}">${divDisplay}</td><td>Rs ${myEffective.toLocaleString('en-IN')}</td></tr>`;
                 } else {
                     html+=`<tr ${highlight}><td>M${b.month}</td><td>${b.winner}${isMe?' 🎉':''}</td><td>Rs ${(b.payout||0).toLocaleString('en-IN')}</td></tr>`;
                 }
             });
             if(pool.type==='bid'){
+                html+=`<tr style="background:#E3F2FD;font-weight:700"><td colspan="4" style="text-align:right">Your Total Dividend:</td><td style="color:#2E7D32" colspan="2">Rs ${runningDividend.toLocaleString('en-IN')}</td></tr>`;
                 html+=`<tr style="background:#E3F2FD;font-weight:700"><td colspan="4" style="text-align:right">Total Dividend Accumulated:</td><td style="color:#2E7D32" colspan="2">Rs ${runningDividend.toLocaleString('en-IN')}</td></tr>`;
             }
             html+=`</table>
