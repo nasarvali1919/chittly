@@ -1732,7 +1732,6 @@ async function loadMyPools(){
 
         // Calculate accumulated dividends — per member (winners excluded from dividend after their win month)
         const bids=pool.bids||[];
-        const me=(pool.members||[]).find(m=>m.email===CU.email);
         const myWonMonth=me&&me.won?me.wonMonth:null;
         let totalDividendEarned=0;
         let bidAmountReceived=0;
