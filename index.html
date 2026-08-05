@@ -215,6 +215,7 @@ async function renderAdmin(){
         <div class="tab" onclick="aTab(this,'a-payments')">Payments</div>
         <div class="tab" onclick="aTab(this,'a-create')">Create Pool</div>
         <div class="tab" onclick="aTab(this,'a-manage')">Manage Pool</div>
+        <div class="tab" onclick="aTab(this,'a-announce')">📢 Announce</div>
     </div>
     <div id="a-users" class="tc active"></div>
     <div id="a-agents" class="tc"></div>
@@ -222,7 +223,8 @@ async function renderAdmin(){
     <div id="a-approve" class="tc"></div>
     <div id="a-payments" class="tc"></div>
     <div id="a-create" class="tc"></div>
-    <div id="a-manage" class="tc"></div>`;
+    <div id="a-manage" class="tc"></div>
+    <div id="a-announce" class="tc"></div>`;
     loadAdminUsers();
 }
 function aTab(el,id){
