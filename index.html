@@ -239,6 +239,7 @@ function aTab(el,id){
     if(id==='a-payments')loadPaymentDashboard();
     if(id==='a-create')loadAdminCreatePool();
     if(id==='a-manage')loadAdminManagePools();
+    if(id==='a-announce')loadAdminAnnouncements();
 }
 
 async function loadAdminUsers(){
@@ -639,6 +640,103 @@ async function loadAdminManagePools(){
 }
 
 // ═══════════════════════════════════════════════════════════
+// ADMIN — ANNOUNCEMENTS (Send to all members of a pool or all users)
+// ═══════════════════════════════════════════════════════════
+async function loadAdminAnnouncements(){
+    const poolSnap=await db.collection('pools').where('approved','==',true).get();
+    let poolOpts='<option value="all">All Users</option>';
+    poolSnap.forEach(doc=>{const p=doc.data();poolOpts+=`<option value="${doc.id}">${p.name}</option>`;});
+
+    let html=`<div class="card"><h2>📢 Send Announcement</h2>
+    <div class="row"><label>Send To:</label><select id="announceTarget" style="max-width:200px">${poolOpts}</select></div>
+    <div class="row"><label>Type:</label><select id="announceType" style="max-width:200px">
+        <option value="custom">Custom Message</option>
+        <option value="payment_reminder">Payment Reminder</option>
+        <option value="bid_winner">Bid Winner Announcement</option>
+        <option value="important">Important Notice</option>
+    </select></div>
+    <div class="row" style="flex-direction:column;align-items:stretch"><label>Message:</label>
+    <textarea id="announceMsg" rows="4" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical;margin-top:4px" placeholder="Type your announcement here..."></textarea></div>
+    <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="sendAnnouncement()">📢 Send Announcement</button>
+    <div id="announceStatus" style="margin-top:8px"></div></div>`;
+
+    // Recent announcements
+    const annSnap=await db.collection('announcements').orderBy('createdAt','desc').limit(20).get();
+    html+=`<div class="card"><h2>Recent Announcements</h2>`;
+    if(annSnap.empty){html+='<p class="note">No announcements sent yet.</p>';}
+    annSnap.forEach(doc=>{
+        const a=doc.data();
+        const icon=a.type==='payment_reminder'?'💰':a.type==='bid_winner'?'🏆':a.type==='important'?'⚠️':'📢';
+        const target=a.targetPool==='all'?'All Users':a.targetPoolName||'Pool';
+        html+=`<div class="item"><div>${icon} <b>${a.message}</b><br><span style="font-size:10px;color:#777">To: ${target} | By: ${a.senderName} | ${new Date(a.createdAt).toLocaleString('en-IN')}</span></div><div><button class="btn btn-red btn-sm" onclick="deleteAnnouncement('${doc.id}')">🗑</button></div></div>`;
+    });
+    html+=`</div>`;
+    document.getElementById('a-announce').innerHTML=html;
+}
+
+async function sendAnnouncement(){
+    const target=document.getElementById('announceTarget').value;
+    const type=document.getElementById('announceType').value;
+    const message=document.getElementById('announceMsg').value.trim();
+    if(!message){alert('Please type a message.');return;}
+
+    const statusEl=document.getElementById('announceStatus');
+    statusEl.innerHTML='<div class="msg" style="background:#E3F2FD;color:#1565C0">⏳ Sending announcement...</div>';
+
+    let targetMembers=[];
+    let targetPoolName='All Users';
+
+    if(target==='all'){
+        // Send to all users
+        const usersSnap=await db.collection('users').get();
+        usersSnap.forEach(doc=>{if(doc.id!==CU.uid) targetMembers.push({uid:doc.id,name:doc.data().name});});
+    } else {
+        // Send to all members of a specific pool
+        const poolDoc=await db.collection('pools').doc(target).get();
+        const pool=poolDoc.data();
+        targetPoolName=pool.name;
+        (pool.members||[]).forEach(m=>{if(m.uid!==CU.uid) targetMembers.push({uid:m.uid,name:m.name});});
+    }
+
+    // Save announcement record
+    await db.collection('announcements').add({
+        message,
+        type,
+        targetPool:target,
+        targetPoolName,
+        senderUid:CU.uid,
+        senderName:UD.name,
+        recipientCount:targetMembers.length,
+        createdAt:new Date().toISOString()
+    });
+
+    // Send notification to each member
+    const batch=db.batch();
+    for(const m of targetMembers){
+        const notifRef=db.collection('notifications').doc();
+        batch.set(notifRef,{
+            type:'announcement',
+            message:'📢 '+message,
+            targetUid:m.uid,
+            forAdmin:false,
+            read:false,
+            createdAt:new Date().toISOString()
+        });
+    }
+    await batch.commit();
+
+    statusEl.innerHTML=`<div class="msg msg-ok">✅ Announcement sent to ${targetMembers.length} members!</div>`;
+    document.getElementById('announceMsg').value='';
+    setTimeout(()=>loadAdminAnnouncements(),2000);
+}
+
+async function deleteAnnouncement(id){
+    if(!confirm('Delete this announcement record?')) return;
+    await db.collection('announcements').doc(id).delete();
+    loadAdminAnnouncements();
+}
+
+// ═══════════════════════════════════════════════════════════
 // AGENT VIEW
 // ═══════════════════════════════════════════════════════════
 async function renderAgent(){
@@ -649,6 +747,7 @@ async function renderAgent(){
         <div class="tab" onclick="agTab(this,'ag-members')">Members</div>
         <div class="tab" onclick="agTab(this,'ag-payments')">Payments</div>
         <div class="tab" onclick="agTab(this,'ag-bids')">Member Bids</div>
+        <div class="tab" onclick="agTab(this,'ag-announce')">📢 Announce</div>
         <div class="tab" onclick="agTab(this,'ag-notif')">Notifications</div>
     </div>
     <div id="ag-pools" class="tc active"></div>
@@ -656,6 +755,7 @@ async function renderAgent(){
     <div id="ag-members" class="tc"></div>
     <div id="ag-payments" class="tc"></div>
     <div id="ag-bids" class="tc"></div>
+    <div id="ag-announce" class="tc"></div>
     <div id="ag-notif" class="tc"></div>`;
     loadAgentPools();
 }
@@ -669,6 +769,7 @@ function agTab(el,id){
     if(id==='ag-members')loadAgentMembers();
     if(id==='ag-payments')loadPaymentDashboard();
     if(id==='ag-bids')loadAgentBids();
+    if(id==='ag-announce')loadAgentAnnounceTab();
     if(id==='ag-notif')loadAgentNotifications();
 }
 
@@ -776,6 +877,86 @@ async function loadAgentBids(){
     }
     html+='</div>';
     document.getElementById('ag-bids').innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// AGENT — Announcements Tab
+// ═══════════════════════════════════════════════════════════
+async function loadAgentAnnounceTab(){
+    const poolSnap=await db.collection('pools').where('agentId','==',CU.uid).get();
+    let poolOpts='';
+    poolSnap.forEach(doc=>{const p=doc.data();poolOpts+=`<option value="${doc.id}">${p.name}</option>`;});
+
+    let html=`<div class="card"><h2>📢 Send Announcement to My Pool Members</h2>
+    <div class="row"><label>Pool:</label><select id="agAnnouncePool" style="max-width:200px">${poolOpts}</select></div>
+    <div class="row"><label>Type:</label><select id="agAnnounceType" style="max-width:200px">
+        <option value="custom">Custom Message</option>
+        <option value="payment_reminder">Payment Reminder</option>
+        <option value="bid_winner">Bid Winner Announcement</option>
+        <option value="important">Important Notice</option>
+    </select></div>
+    <div class="row" style="flex-direction:column;align-items:stretch"><label>Message:</label>
+    <textarea id="agAnnounceMsg" rows="4" style="width:100%;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:13px;resize:vertical;margin-top:4px" placeholder="Type your announcement here..."></textarea></div>
+    <button class="btn btn-gold btn-full" style="margin-top:10px" onclick="sendAgentAnnouncement()">📢 Send Announcement</button>
+    <div id="agAnnounceStatus" style="margin-top:8px"></div></div>`;
+
+    // Recent announcements by this agent
+    const annSnap=await db.collection('announcements').where('senderUid','==',CU.uid).orderBy('createdAt','desc').limit(15).get();
+    html+=`<div class="card"><h2>My Recent Announcements</h2>`;
+    if(annSnap.empty){html+='<p class="note">No announcements sent yet.</p>';}
+    annSnap.forEach(doc=>{
+        const a=doc.data();
+        const icon=a.type==='payment_reminder'?'💰':a.type==='bid_winner'?'🏆':a.type==='important'?'⚠️':'📢';
+        html+=`<div class="item"><div>${icon} <b>${a.message}</b><br><span style="font-size:10px;color:#777">To: ${a.targetPoolName||'Pool'} | ${new Date(a.createdAt).toLocaleString('en-IN')} | ${a.recipientCount} recipients</span></div></div>`;
+    });
+    html+=`</div>`;
+    document.getElementById('ag-announce').innerHTML=html;
+}
+
+async function sendAgentAnnouncement(){
+    const poolId=document.getElementById('agAnnouncePool').value;
+    const type=document.getElementById('agAnnounceType').value;
+    const message=document.getElementById('agAnnounceMsg').value.trim();
+    if(!message){alert('Please type a message.');return;}
+    if(!poolId){alert('Select a pool.');return;}
+
+    const statusEl=document.getElementById('agAnnounceStatus');
+    statusEl.innerHTML='<div class="msg" style="background:#E3F2FD;color:#1565C0">⏳ Sending...</div>';
+
+    const poolDoc=await db.collection('pools').doc(poolId).get();
+    const pool=poolDoc.data();
+    const members=pool.members||[];
+
+    // Save announcement
+    await db.collection('announcements').add({
+        message,
+        type,
+        targetPool:poolId,
+        targetPoolName:pool.name,
+        senderUid:CU.uid,
+        senderName:UD.name,
+        recipientCount:members.length,
+        createdAt:new Date().toISOString()
+    });
+
+    // Send notification to each pool member
+    const batch=db.batch();
+    for(const m of members){
+        const notifRef=db.collection('notifications').doc();
+        batch.set(notifRef,{
+            type:'announcement',
+            message:'📢 ['+pool.name+'] '+message,
+            targetUid:m.uid,
+            forAdmin:false,
+            read:false,
+            createdAt:new Date().toISOString()
+        });
+    }
+    await batch.commit();
+
+    statusEl.innerHTML=`<div class="msg msg-ok">✅ Announcement sent to ${members.length} members of ${pool.name}!</div>`;
+    document.getElementById('agAnnounceMsg').value='';
+    setTimeout(()=>loadAgentAnnounceTab(),2000);
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -1060,25 +1241,37 @@ async function loadAdminMemberBid(){
         return;
     }
 
-    // Check if already bid this month
+    // Check if already bid this month (respect rejected status)
     const bidSnap=await db.collection('memberBids')
         .where('poolId','==',currentPoolId)
         .where('memberEmail','==',CU.email)
         .where('month','==',month)
         .get();
 
-    if(!bidSnap.empty){
-        const existingBid=bidSnap.docs[0].data();
-        container.innerHTML=`<div class="msg" style="background:#E3F2FD;color:#1565C0">📝 Your bid for Month ${month}: <b>Rs ${existingBid.bidAmount.toLocaleString('en-IN')}</b><br><span style="font-size:10px">Submitted: ${new Date(existingBid.submittedAt).toLocaleString('en-IN')}</span></div>`;
+    let activeBid=null;
+    bidSnap.forEach(doc=>{const b=doc.data();if(b.status!=='rejected') activeBid=b;});
+
+    if(activeBid){
+        container.innerHTML=`<div class="msg" style="background:#E3F2FD;color:#1565C0">📝 Your bid for Month ${month}: <b>Rs ${activeBid.bidAmount.toLocaleString('en-IN')}</b><br><span style="font-size:10px">Submitted: ${new Date(activeBid.submittedAt).toLocaleString('en-IN')}</span></div>`;
         return;
     }
 
+    // Check for tie-breaker
+    let tieBreaker=null;
+    try{
+        const tbDoc=await db.collection('tieBreakers').doc(CU.uid+'_'+currentPoolId+'_'+month).get();
+        if(tbDoc.exists && tbDoc.data().status==='pending') tieBreaker=tbDoc.data();
+    }catch(e){}
+
+    const effectiveMax=tieBreaker?tieBreaker.maxAllowedBid:maxBid;
+    const label=tieBreaker?'🤝 Tie-Breaker: Submit a lower bid (max Rs '+effectiveMax.toLocaleString('en-IN')+')':'You are a member of this pool. Submit your bid below:';
+
     container.innerHTML=`
     <div style="background:#FFF8E1;border:1px solid #FFD54F;border-radius:8px;padding:10px;margin-bottom:10px">
-    <b style="font-size:11px;color:#F57F17">You are a member of this pool. Submit your bid below:</b>
-    <p style="font-size:10px;color:#555;margin-top:4px">You can bid any amount from Rs 1 up to Rs ${maxBid.toLocaleString('en-IN')}</p></div>
-    <div class="row"><label>Your Bid (Rs):</label><input type="number" id="adminBidInput" placeholder="Max: Rs ${maxBid.toLocaleString('en-IN')}" min="1" max="${maxBid}" style="max-width:150px"></div>
-    <button class="btn btn-gold" onclick="submitAdminBid(${month},${maxBid})">Submit My Bid</button>
+    <b style="font-size:11px;color:#F57F17">${label}</b>
+    <p style="font-size:10px;color:#555;margin-top:4px">You can bid any amount from Rs 1 up to Rs ${effectiveMax.toLocaleString('en-IN')}</p></div>
+    <div class="row"><label>Your Bid (Rs):</label><input type="number" id="adminBidInput" placeholder="Max: Rs ${effectiveMax.toLocaleString('en-IN')}" min="1" max="${effectiveMax}" style="max-width:150px"></div>
+    <button class="btn btn-gold" onclick="submitAdminBid(${month},${effectiveMax})">Submit My Bid</button>
     <div id="adminBidMsg" style="margin-top:8px"></div>`;
 }
 
@@ -1088,13 +1281,15 @@ async function submitAdminBid(month,maxBid){
     if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount (minimum Rs 1).');return;}
     if(bidAmount>maxBid){alert('Bid cannot exceed Rs '+maxBid.toLocaleString('en-IN'));return;}
 
-    // Check if already bid
+    // Check if already has active bid
     const existing=await db.collection('memberBids')
         .where('poolId','==',currentPoolId)
         .where('memberEmail','==',CU.email)
         .where('month','==',month)
         .get();
-    if(!existing.empty){alert('You have already submitted a bid for this month.');return;}
+    let hasActiveBid=false;
+    existing.forEach(doc=>{if(doc.data().status!=='rejected') hasActiveBid=true;});
+    if(hasActiveBid){alert('You already have an active bid for this month.');return;}
 
     await db.collection('memberBids').add({
         poolId:currentPoolId,
@@ -1104,8 +1299,17 @@ async function submitAdminBid(month,maxBid){
         memberEmail:CU.email,
         memberName:UD.name,
         memberUid:CU.uid,
+        status:'active',
+        rebid:existing.size>0,
         submittedAt:new Date().toISOString()
     });
+
+    // Clear tie-breaker if applicable
+    try{
+        const tbRef=db.collection('tieBreakers').doc(CU.uid+'_'+currentPoolId+'_'+month);
+        const tbDoc=await tbRef.get();
+        if(tbDoc.exists) await tbRef.update({status:'completed'});
+    }catch(e){}
 
     document.getElementById('adminBidMsg').innerHTML='<div class="msg msg-ok">✅ Bid submitted: Rs '+bidAmount.toLocaleString('en-IN')+'</div>';
     setTimeout(()=>{loadAdminMemberBid();loadBidSubmissions();},1500);
@@ -1120,33 +1324,71 @@ async function loadBidSubmissions(){
     const maxBid=poolTotal-comm;
     const eligible=(currentPool.members||[]).filter(m=>!m.won);
 
-    // Fetch all member bids for this month
+    // Fetch all member bids for this month (excluding rejected ones)
     const bidSnap=await db.collection('memberBids')
         .where('poolId','==',currentPoolId)
         .where('month','==',month)
         .get();
 
     let memberBids=[];
-    bidSnap.forEach(doc=>{memberBids.push(doc.data());});
+    let memberBidDocs=[];
+    bidSnap.forEach(doc=>{
+        const b=doc.data();
+        if(b.status!=='rejected') {
+            memberBids.push({...b,docId:doc.id});
+            memberBidDocs.push({id:doc.id,data:b});
+        }
+    });
 
     // Sort by bid amount (lowest first)
     memberBids.sort((a,b)=>a.bidAmount-b.bidAmount);
 
+    // Detect ties at the lowest bid
+    let tiedBids=[];
+    if(memberBids.length>=2){
+        const lowestAmt=memberBids[0].bidAmount;
+        tiedBids=memberBids.filter(b=>b.bidAmount===lowestAmt);
+    }
+
     let html=`<p style="font-size:11px;margin-bottom:8px"><b>Pool Total:</b> Rs ${poolTotal.toLocaleString('en-IN')} | <b>Commission:</b> Rs ${comm.toLocaleString('en-IN')} (${currentPool.commission}%) | <b>Max Bid:</b> Rs ${maxBid.toLocaleString('en-IN')}</p>`;
     html+=`<p style="font-size:11px;margin-bottom:8px"><b>Eligible:</b> ${eligible.length} members | <b>Bids received:</b> ${memberBids.length}</p>`;
 
+    // Tie-breaking alert
+    if(tiedBids.length>=2){
+        html+=`<div style="background:#FFF3E0;border:2px solid #FF9800;border-radius:10px;padding:12px;margin:10px 0">
+        <b style="color:#E65100;font-size:12px">⚠️ TIE DETECTED!</b>
+        <p style="font-size:11px;color:#555;margin:6px 0">${tiedBids.length} members have bid the same lowest amount of <b>Rs ${tiedBids[0].bidAmount.toLocaleString('en-IN')}</b>:</p>
+        <ul style="font-size:11px;margin:4px 0 8px 16px">${tiedBids.map(b=>'<li>'+b.memberName+'</li>').join('')}</ul>
+        <p style="font-size:11px;color:#555">You can invite them to re-bid with a lower amount. Only tied members will be allowed to place a new bid.</p>
+        <button class="btn btn-gold btn-sm" onclick="initiateTieBreaker(${tiedBids[0].bidAmount})">🔄 Start Tie-Breaker Round</button>
+        <div id="tieBreakerMsg" style="margin-top:8px"></div></div>`;
+    }
+
     if(memberBids.length>0){
-        html+=`<table class="tbl"><tr><th>#</th><th>Member</th><th>Bid Amount</th><th>Time</th>${(UR==='admin'||UR==='agent')?'<th>Action</th>':''}</tr>`;
+        html+=`<table class="tbl"><tr><th>#</th><th>Member</th><th>Bid Amount</th><th>Status</th><th>Time</th>${(UR==='admin'||UR==='agent')?'<th>Actions</th>':''}</tr>`;
         memberBids.forEach((b,i)=>{
-            const isLowest=i===0;
-            const highlight=isLowest?'style="background:#E8F5E9;font-weight:700"':'';
-            html+=`<tr ${highlight}><td>${i+1}</td><td>${b.memberName}${isLowest?' ⭐':''}</td><td>Rs ${b.bidAmount.toLocaleString('en-IN')}</td><td>${new Date(b.submittedAt).toLocaleDateString('en-IN')}</td>`;
+            const isLowest=i===0 && tiedBids.length<2;
+            const isTied=tiedBids.length>=2 && b.bidAmount===tiedBids[0].bidAmount;
+            const highlight=isLowest?'style="background:#E8F5E9;font-weight:700"':isTied?'style="background:#FFF8E1"':'';
+            const statusBadge=b.rebid?'<span class="badge b-approved">Re-bid</span>':'<span class="badge b-pending">Active</span>';
+            html+=`<tr ${highlight}><td>${i+1}</td><td>${b.memberName}${isLowest?' ⭐':''}${isTied?' 🤝':''}</td><td>Rs ${b.bidAmount.toLocaleString('en-IN')}</td><td>${statusBadge}</td><td>${new Date(b.submittedAt).toLocaleDateString('en-IN')}</td>`;
             if(UR==='admin'||UR==='agent'){
-                html+=`<td><button class="btn btn-green btn-sm" onclick="selectBidWinner('${b.memberEmail}','${b.memberName}',${b.bidAmount})">Select Winner</button></td>`;
+                html+=`<td><button class="btn btn-green btn-sm" onclick="selectBidWinner('${b.memberEmail}','${b.memberName}',${b.bidAmount})">✓ Winner</button> <button class="btn btn-red btn-sm" onclick="rejectBid('${b.docId}','${b.memberName}',${b.bidAmount})">✕ Reject</button></td>`;
             }
             html+=`</tr>`;
         });
         html+=`</table>`;
+
+        // Show rejected bids
+        let rejectedBids=[];
+        bidSnap.forEach(doc=>{const b=doc.data();if(b.status==='rejected') rejectedBids.push(b);});
+        if(rejectedBids.length>0){
+            html+=`<div style="margin-top:10px;background:#FFEBEE;border-radius:8px;padding:10px"><b style="font-size:11px;color:#C62828">Rejected Bids:</b>`;
+            rejectedBids.forEach(b=>{
+                html+=`<div style="font-size:11px;padding:4px 0;color:#555">${b.memberName} — Rs ${b.bidAmount.toLocaleString('en-IN')} <span class="badge b-rejected">Rejected</span>${b.rejectReason?' — '+b.rejectReason:''}</div>`;
+            });
+            html+=`</div>`;
+        }
 
         // Show members who haven't bid (they get assigned max bid)
         const biddedEmails=memberBids.map(b=>b.memberEmail);
@@ -1166,6 +1408,102 @@ async function loadBidSubmissions(){
         }
     }
     container.innerHTML=html;
+}
+
+// ═══════════════════════════════════════════════════════════
+// REJECT BID — Admin/Agent rejects a wrongly placed or duplicate bid
+// ═══════════════════════════════════════════════════════════
+async function rejectBid(bidDocId,memberName,bidAmount){
+    const reason=prompt('Reason for rejecting '+memberName+"'s bid of Rs "+bidAmount.toLocaleString('en-IN')+'?\n(e.g., wrongly placed, duplicate, invalid amount)');
+    if(reason===null) return; // cancelled
+
+    await db.collection('memberBids').doc(bidDocId).update({
+        status:'rejected',
+        rejectReason:reason||'Rejected by admin',
+        rejectedAt:new Date().toISOString(),
+        rejectedBy:CU.uid
+    });
+
+    // Notify the member that their bid was rejected and they can re-bid
+    const bidDoc=await db.collection('memberBids').doc(bidDocId).get();
+    const bid=bidDoc.data();
+    await db.collection('notifications').add({
+        type:'bid_rejected',
+        message:'❌ Your bid of Rs '+bidAmount.toLocaleString('en-IN')+' for "'+currentPool.name+'" Month '+((currentPool.currentMonth||0)+1)+' has been rejected'+(reason?': '+reason:'')+'. You may place a new bid.',
+        poolId:currentPoolId,
+        targetUid:bid.memberUid,
+        forAdmin:false,
+        read:false,
+        createdAt:new Date().toISOString()
+    });
+
+    alert(memberName+"'s bid rejected. They can now place a new bid.");
+    loadBidSubmissions();
+}
+
+// ═══════════════════════════════════════════════════════════
+// TIE-BREAKER — When 2+ bidders have the same lowest amount
+// ═══════════════════════════════════════════════════════════
+async function initiateTieBreaker(tiedAmount){
+    const month=(currentPool.currentMonth||0)+1;
+
+    // Find all bids at this amount
+    const bidSnap=await db.collection('memberBids')
+        .where('poolId','==',currentPoolId)
+        .where('month','==',month)
+        .where('bidAmount','==',tiedAmount)
+        .get();
+
+    let tiedMembers=[];
+    bidSnap.forEach(doc=>{
+        const b=doc.data();
+        if(b.status!=='rejected') tiedMembers.push({docId:doc.id,...b});
+    });
+
+    if(tiedMembers.length<2){
+        alert('No tie detected. Refresh and try again.');
+        return;
+    }
+
+    // Mark their current bids as "tied" and allow re-bidding
+    for(const tm of tiedMembers){
+        // Mark existing bid as superseded (rejected with tie reason)
+        await db.collection('memberBids').doc(tm.docId).update({
+            status:'rejected',
+            rejectReason:'Tie-breaker: same amount as another bidder. Please re-bid lower.',
+            rejectedAt:new Date().toISOString(),
+            rejectedBy:CU.uid
+        });
+
+        // Add to tieBreaker collection so member knows they can re-bid
+        await db.collection('tieBreakers').doc(tm.memberUid+'_'+currentPoolId+'_'+month).set({
+            poolId:currentPoolId,
+            poolName:currentPool.name,
+            month,
+            memberUid:tm.memberUid,
+            memberEmail:tm.memberEmail,
+            memberName:tm.memberName,
+            previousBid:tiedAmount,
+            maxAllowedBid:tiedAmount-1,
+            status:'pending',
+            createdAt:new Date().toISOString()
+        });
+
+        // Notify the tied member
+        await db.collection('notifications').add({
+            type:'tie_breaker',
+            message:'🤝 Tie-Breaker! Your bid of Rs '+tiedAmount.toLocaleString('en-IN')+' for "'+currentPool.name+'" (Month '+month+') is tied with another member. Please submit a lower bid (max Rs '+(tiedAmount-1).toLocaleString('en-IN')+').',
+            poolId:currentPoolId,
+            targetUid:tm.memberUid,
+            forAdmin:false,
+            read:false,
+            createdAt:new Date().toISOString()
+        });
+    }
+
+    const msgEl=document.getElementById('tieBreakerMsg');
+    if(msgEl) msgEl.innerHTML='<div class="msg msg-ok">✅ Tie-breaker initiated! '+tiedMembers.length+' members notified to re-bid below Rs '+tiedAmount.toLocaleString('en-IN')+'.</div>';
+    setTimeout(()=>loadBidSubmissions(),2000);
 }
 
 async function selectBidWinner(winnerEmail,winnerName,bidAmt){
@@ -1409,36 +1747,67 @@ async function loadMemberBids(){
         <li><b>Members who do not submit a bid will be assigned the maximum bid (Rs ${maxBid.toLocaleString('en-IN')}) automatically.</b></li>
         <li>The difference (pool - bid - commission) is distributed as dividend to all members.</li>
         <li>Each member can win only <b>once</b> during the entire chit duration.</li>
-        <li>Once you bid, it cannot be changed. Agent/Admin selects the lowest bid as winner.</li>
+        <li>Once you bid, it cannot be changed unless rejected by admin or tie-breaker.</li>
+        <li>If two or more members bid the same lowest amount, admin will initiate a tie-breaker round.</li>
         <li>All members must pay their monthly contribution regardless of bidding.</li>
         </ul></div>`;
 
         if(hasWon){
             html+=`<div class="msg msg-ok">✅ You have already won in Month ${me.wonMonth}. No more bids needed.</div>`;
         } else {
-            // Check if already bid this month
+            // Check for active tie-breaker
+            let tieBreaker=null;
+            try{
+                const tbDoc=await db.collection('tieBreakers').doc(CU.uid+'_'+pool.id+'_'+currentMonth).get();
+                if(tbDoc.exists && tbDoc.data().status==='pending') tieBreaker=tbDoc.data();
+            }catch(e){}
+
+            // Check if already has an ACTIVE (non-rejected) bid this month
             const bidSnap=await db.collection('memberBids')
                 .where('poolId','==',pool.id)
                 .where('memberEmail','==',CU.email)
                 .where('month','==',currentMonth)
                 .get();
 
-            if(!bidSnap.empty){
-                const existingBid=bidSnap.docs[0].data();
-                html+=`<div class="msg" style="background:#E3F2FD;color:#1565C0">📝 Your bid for Month ${currentMonth}: <b>Rs ${existingBid.bidAmount.toLocaleString('en-IN')}</b><br><span style="font-size:10px">Submitted: ${new Date(existingBid.submittedAt).toLocaleString('en-IN')}</span></div>`;
+            let activeBid=null;
+            let rejectedBids=[];
+            bidSnap.forEach(doc=>{
+                const b=doc.data();
+                if(b.status==='rejected') rejectedBids.push(b);
+                else if(!b.status || b.status==='active') activeBid=b;
+            });
+
+            if(activeBid){
+                // Has an active bid — cannot re-bid
+                html+=`<div class="msg" style="background:#E3F2FD;color:#1565C0">📝 Your bid for Month ${currentMonth}: <b>Rs ${activeBid.bidAmount.toLocaleString('en-IN')}</b><br><span style="font-size:10px">Submitted: ${new Date(activeBid.submittedAt).toLocaleString('en-IN')}</span></div>`;
+                html+=`<p class="note" style="margin-top:6px">Your bid is locked until the winner is selected. Only admin can reject it if wrongly placed.</p>`;
+            } else if(tieBreaker){
+                // Tie-breaker mode — must bid lower than previous
+                html+=`<div style="background:#FFF3E0;border:2px solid #FF9800;border-radius:10px;padding:12px;margin-bottom:10px">
+                <b style="color:#E65100;font-size:12px">🤝 TIE-BREAKER ROUND</b>
+                <p style="font-size:11px;color:#555;margin:6px 0">Your previous bid of Rs ${tieBreaker.previousBid.toLocaleString('en-IN')} was tied with another member.</p>
+                <p style="font-size:11px;color:#555">Please submit a <b>lower bid</b> (max Rs ${tieBreaker.maxAllowedBid.toLocaleString('en-IN')}).</p></div>`;
+                html+=`<div class="row"><label>New Bid (Rs):</label><input type="number" id="bidInput_${pool.id}" placeholder="Max: Rs ${tieBreaker.maxAllowedBid.toLocaleString('en-IN')}" min="1" max="${tieBreaker.maxAllowedBid}" style="max-width:150px"></div>
+                <button class="btn btn-gold btn-full" onclick="submitMemberBid('${pool.id}','${pool.name.replace(/'/g,"\\'")}',${currentMonth},${tieBreaker.maxAllowedBid})">Submit Tie-Breaker Bid</button>`;
             } else {
+                // No active bid — can submit (either first time or after rejection)
+                if(rejectedBids.length>0){
+                    html+=`<div class="msg msg-err" style="margin-bottom:10px">❌ Your previous bid was rejected${rejectedBids[rejectedBids.length-1].rejectReason?': '+rejectedBids[rejectedBids.length-1].rejectReason:''}. You may place a new bid below.</div>`;
+                }
                 html+=`<div class="row"><label>Your Bid (Rs):</label><input type="number" id="bidInput_${pool.id}" placeholder="Max: Rs ${maxBid.toLocaleString('en-IN')}" min="1" max="${maxBid}" style="max-width:150px"></div>
                 <p class="note">Enter the amount you want to receive (any amount up to Rs ${maxBid.toLocaleString('en-IN')}). Lower bid = higher chance of winning.</p>
                 <button class="btn btn-gold btn-full" onclick="submitMemberBid('${pool.id}','${pool.name.replace(/'/g,"\\'")}',${currentMonth},${maxBid})">Submit My Bid</button>`;
             }
         }
 
-        // Show all bids for this month (anonymized for fairness — only show count)
+        // Show all bids for this month (anonymized for fairness — only show count, exclude rejected)
         const allBidsSnap=await db.collection('memberBids')
             .where('poolId','==',pool.id)
             .where('month','==',currentMonth)
             .get();
-        html+=`<p class="note" style="margin-top:10px">Bids received this month: ${allBidsSnap.size}/${(pool.members||[]).filter(m=>!m.won).length} eligible members</p>`;
+        let activeCount=0;
+        allBidsSnap.forEach(doc=>{if(doc.data().status!=='rejected') activeCount++;});
+        html+=`<p class="note" style="margin-top:10px">Active bids this month: ${activeCount}/${(pool.members||[]).filter(m=>!m.won).length} eligible members</p>`;
 
         html+=`<div id="bidMsg_${pool.id}"></div></div>`;
     }
@@ -1453,13 +1822,15 @@ async function submitMemberBid(poolId,poolName,month,maxBid){
     if(bidAmount>maxBid){alert('Bid cannot exceed Rs '+maxBid.toLocaleString('en-IN'));return;}
 
     try{
-    // Check if already bid
+    // Check if already has an ACTIVE bid (non-rejected)
     const existing=await db.collection('memberBids')
         .where('poolId','==',poolId)
         .where('memberEmail','==',CU.email)
         .where('month','==',month)
         .get();
-    if(!existing.empty){alert('You have already submitted a bid for this month.');return;}
+    let hasActiveBid=false;
+    existing.forEach(doc=>{if(doc.data().status!=='rejected') hasActiveBid=true;});
+    if(hasActiveBid){alert('You already have an active bid for this month. Only one bid allowed until winner is selected.');return;}
 
     await db.collection('memberBids').add({
         poolId,
@@ -1469,15 +1840,25 @@ async function submitMemberBid(poolId,poolName,month,maxBid){
         memberEmail:CU.email,
         memberName:UD.name,
         memberUid:CU.uid,
+        status:'active',
+        rebid:existing.size>0,
         submittedAt:new Date().toISOString()
     });
+
+    // Clear tie-breaker if this was a tie-breaker re-bid
+    try{
+        const tbRef=db.collection('tieBreakers').doc(CU.uid+'_'+poolId+'_'+month);
+        const tbDoc=await tbRef.get();
+        if(tbDoc.exists) await tbRef.update({status:'completed'});
+    }catch(e){}
 
     // Notify agent/admin
     const poolDoc=await db.collection('pools').doc(poolId).get();
     const pool=poolDoc.data();
+    const rebidLabel=existing.size>0?' (re-bid)':'';
     await db.collection('notifications').add({
         type:'bid_submitted',
-        message:UD.name+' submitted a bid of Rs '+bidAmount.toLocaleString('en-IN')+' for '+poolName+' (Month '+month+')',
+        message:UD.name+' submitted a bid'+rebidLabel+' of Rs '+bidAmount.toLocaleString('en-IN')+' for '+poolName+' (Month '+month+')',
         poolId,
         targetUid:pool.agentId,
         forAdmin:true,
@@ -1509,7 +1890,7 @@ async function loadMemberNotifications(){
     if(snap.empty){html+='<p class="note">No notifications yet.</p>';}
     snap.forEach(doc=>{
         const n=doc.data();
-        const icon=n.type==='member_joined'?'👋':n.type==='bid_submitted'?'📝':n.type==='payment_approved'?'✅':n.type==='payment_rejected'?'❌':'🔔';
+        const icon=n.type==='member_joined'?'👋':n.type==='bid_submitted'?'📝':n.type==='payment_approved'?'✅':n.type==='payment_rejected'?'❌':n.type==='announcement'?'📢':n.type==='bid_rejected'?'🚫':n.type==='tie_breaker'?'🤝':n.type==='bid_result'?'🏆':'🔔';
         const readStyle=n.read?'opacity:0.6':'';
         const time=new Date(n.createdAt).toLocaleString('en-IN');
         html+=`<div class="item" style="${readStyle}"><div>${icon} ${n.message}<br><span style="font-size:9px;color:#999">${time}</span></div></div>`;
