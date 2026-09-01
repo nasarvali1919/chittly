@@ -94,9 +94,41 @@ input:focus,select:focus{outline:none;border-color:#006064}
 .payment-cell.unpaid{border-color:#D32F2F;background:#FFEBEE}
 .payment-cell.review{border-color:#FF9800;background:#FFF3E0}
 .payment-cell.rejected{border-color:#B71C1C;background:#FFCDD2}
+/* ── Bid Confirmation Modal ── */
+.bid-modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:999;align-items:center;justify-content:center;padding:20px}
+.bid-modal-overlay.open{display:flex}
+.bid-modal{background:#fff;border-radius:16px;padding:24px 20px;max-width:360px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.2);animation:popIn .2s ease}
+@keyframes popIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.bid-modal h3{font-size:16px;color:#006064;margin-bottom:6px}
+.bid-modal .bid-amount-display{font-size:28px;font-weight:700;color:#004D40;text-align:center;margin:14px 0;padding:14px;background:#E0F2F1;border-radius:10px}
+.bid-modal .warning-box{background:#FFF8E1;border:2px solid #FFD54F;border-radius:8px;padding:10px;margin:10px 0;font-size:11px;color:#5D4037;line-height:1.6}
+.bid-modal-btns{display:flex;gap:10px;margin-top:16px}
+.bid-modal-btns button{flex:1;padding:12px;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer}
+.btn-confirm-bid{background:linear-gradient(135deg,#FFD700,#FFA000);color:#004D40}
+.btn-cancel-bid{background:#f0f0f0;color:#555}
 </style>
 </head>
 <body>
+
+<!-- BID CONFIRMATION MODAL -->
+<div id="bidConfirmModal" class="bid-modal-overlay">
+  <div class="bid-modal">
+    <h3>📝 Confirm Your Bid</h3>
+    <p style="font-size:11px;color:#777">You are about to submit the following bid:</p>
+    <div class="bid-amount-display">Rs <span id="bidConfirmAmount">0</span></div>
+    <p style="font-size:11px;color:#555;text-align:center" id="bidConfirmPoolLabel"></p>
+    <div class="warning-box">
+      ⚠️ <b>Please review carefully before confirming.</b><br>
+      • Once submitted, your bid is <b>locked</b> and cannot be changed.<br>
+      • Only your admin can allow a re-bid if you placed the wrong amount.<br>
+      • The <b>lowest bidder</b> wins the pool amount this month.
+    </div>
+    <div class="bid-modal-btns">
+      <button class="btn-cancel-bid" onclick="closeBidModal()">✕ Go Back</button>
+      <button class="btn-confirm-bid" id="bidConfirmBtn" onclick="confirmBidSubmit()">✓ Confirm &amp; Submit</button>
+    </div>
+  </div>
+</div>
 
 <!-- LOGIN -->
 <div id="loginScreen" class="login-screen">
@@ -986,7 +1018,7 @@ async function loadAgentNotifications(){
     let html='<div class="card"><h2>Notifications</h2>';
     if(notifications.length===0){html+='<p class="note">No notifications.</p>';}
     notifications.forEach(n=>{
-        const icon=n.type==='member_joined'?'👋':n.type==='join_request'?'📩':n.type==='bid_submitted'?'📝':n.type==='announcement'?'📢':'🔔';
+        const icon=n.type==='member_joined'?'👋':n.type==='join_request'?'📩':n.type==='bid_submitted'?'📝':n.type==='bid_confirmed'?'✅':n.type==='bid_rebid_allowed'?'↺':n.type==='bid_rejected'?'❌':n.type==='announcement'?'📢':'🔔';
         const readStyle=n.read?'opacity:0.6':'';
         const time=new Date(n.createdAt).toLocaleString('en-IN');
         html+=`<div class="item" style="${readStyle}"><div>${icon} ${n.message}<br><span style="font-size:9px;color:#999">${time}</span></div></div>`;
@@ -1293,7 +1325,9 @@ async function submitAdminBid(month,maxBid){
     if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount (minimum Rs 1).');return;}
     if(bidAmount>maxBid){alert('Bid cannot exceed Rs '+maxBid.toLocaleString('en-IN'));return;}
 
-    // Check if already has active bid
+    // Show confirmation modal — actual submission only happens after confirmation
+    showBidConfirmModal(bidAmount, currentPool.name+' — Month '+month, async ()=>{
+    // Check if already has active bid (guard at confirm time)
     const existing=await db.collection('memberBids')
         .where('poolId','==',currentPoolId)
         .where('memberEmail','==',CU.email)
@@ -1323,8 +1357,20 @@ async function submitAdminBid(month,maxBid){
         if(tbDoc.exists) await tbRef.update({status:'completed'});
     }catch(e){}
 
-    document.getElementById('adminBidMsg').innerHTML='<div class="msg msg-ok">✅ Bid submitted: Rs '+bidAmount.toLocaleString('en-IN')+'</div>';
+    // Confirm to the member themselves via notification
+    await db.collection('notifications').add({
+        type:'bid_confirmed',
+        message:'✅ Your bid of Rs '+bidAmount.toLocaleString('en-IN')+' for "'+currentPool.name+'" Month '+month+' has been submitted successfully. It is now locked. Contact admin if you need a re-bid.',
+        poolId:currentPoolId,
+        targetUid:CU.uid,
+        forAdmin:false,
+        read:false,
+        createdAt:new Date().toISOString()
+    });
+
+    document.getElementById('adminBidMsg').innerHTML='<div class="msg msg-ok">✅ Bid confirmed and submitted: Rs '+bidAmount.toLocaleString('en-IN')+'</div>';
     setTimeout(()=>{loadAdminMemberBid();loadBidSubmissions();},1500);
+    });
 }
 
 async function loadBidSubmissions(){
@@ -1385,7 +1431,7 @@ async function loadBidSubmissions(){
             const statusBadge=b.rebid?'<span class="badge b-approved">Re-bid</span>':'<span class="badge b-pending">Active</span>';
             html+=`<tr ${highlight}><td>${i+1}</td><td>${b.memberName}${isLowest?' ⭐':''}${isTied?' 🤝':''}</td><td>Rs ${b.bidAmount.toLocaleString('en-IN')}</td><td>${statusBadge}</td><td>${new Date(b.submittedAt).toLocaleDateString('en-IN')}</td>`;
             if(UR==='admin'||UR==='agent'){
-                html+=`<td><button class="btn btn-green btn-sm" onclick="selectBidWinner('${b.memberEmail}','${b.memberName}',${b.bidAmount})">✓ Winner</button> <button class="btn btn-red btn-sm" onclick="rejectBid('${b.docId}','${b.memberName}',${b.bidAmount})">✕ Reject</button></td>`;
+                html+=`<td><button class="btn btn-green btn-sm" onclick="selectBidWinner('${b.memberEmail}','${b.memberName}',${b.bidAmount})">✓ Winner</button> <button class="btn btn-red btn-sm" onclick="rejectBid('${b.docId}','${b.memberName}',${b.bidAmount})">✕ Reject</button> <button class="btn btn-sm" style="background:#7B1FA2;color:#fff" onclick="allowRebid('${b.docId}','${b.memberName}','${b.memberUid}',${b.bidAmount},${month})">↺ Allow Re-bid</button></td>`;
             }
             html+=`</tr>`;
         });
@@ -1450,6 +1496,43 @@ async function rejectBid(bidDocId,memberName,bidAmount){
     });
 
     alert(memberName+"'s bid rejected. They can now place a new bid.");
+    loadBidSubmissions();
+}
+
+// ═══════════════════════════════════════════════════════════
+// ALLOW RE-BID — Admin/Agent grants a member permission to cancel & re-bid
+// ═══════════════════════════════════════════════════════════
+async function allowRebid(bidDocId,memberName,memberUid,bidAmount,month){
+    const confirmed=confirm(
+        '⚠️ ALLOW RE-BID — Admin Action\n\n'+
+        'Member: '+memberName+'\n'+
+        'Current bid: Rs '+bidAmount.toLocaleString('en-IN')+'\n\n'+
+        'This will cancel their existing bid and allow them to place a fresh one for Month '+month+'.\n\n'+
+        'Only do this if the member genuinely placed the wrong amount.\n\n'+
+        'Are you sure you want to allow a re-bid for '+memberName+'?'
+    );
+    if(!confirmed) return;
+
+    // Mark the current bid as rejected with a clear reason
+    await db.collection('memberBids').doc(bidDocId).update({
+        status:'rejected',
+        rejectReason:'Re-bid allowed by admin',
+        rejectedAt:new Date().toISOString(),
+        rejectedBy:CU.uid
+    });
+
+    // Notify the member they can now re-bid
+    await db.collection('notifications').add({
+        type:'bid_rebid_allowed',
+        message:'✅ Admin has allowed you to re-bid for "'+currentPool.name+'" Month '+month+'. Your previous bid of Rs '+bidAmount.toLocaleString('en-IN')+' has been cancelled. Please submit a new bid.',
+        poolId:currentPoolId,
+        targetUid:memberUid,
+        forAdmin:false,
+        read:false,
+        createdAt:new Date().toISOString()
+    });
+
+    alert('✅ Re-bid granted. '+memberName+' has been notified and can now place a new bid.');
     loadBidSubmissions();
 }
 
@@ -1917,9 +2000,9 @@ async function loadMemberBids(){
             });
 
             if(activeBid){
-                // Has an active bid — cannot re-bid
+                // Has an active bid — locked, only admin can allow re-bid
                 html+=`<div class="msg" style="background:#E3F2FD;color:#1565C0">📝 Your bid for Month ${currentMonth}: <b>Rs ${activeBid.bidAmount.toLocaleString('en-IN')}</b><br><span style="font-size:10px">Submitted: ${new Date(activeBid.submittedAt).toLocaleString('en-IN')}</span></div>`;
-                html+=`<p class="note" style="margin-top:6px">Your bid is locked until the winner is selected. Only admin can reject it if wrongly placed.</p>`;
+                html+=`<p class="note" style="margin-top:6px">Your bid is locked. If you placed the wrong amount, contact your admin to allow a re-bid.</p>`;
             } else if(tieBreaker){
                 // Tie-breaker mode — must bid lower than previous
                 html+=`<div style="background:#FFF3E0;border:2px solid #FF9800;border-radius:10px;padding:12px;margin-bottom:10px">
@@ -1953,6 +2036,34 @@ async function loadMemberBids(){
     document.getElementById('m-bid').innerHTML=html;
 }
 
+// ═══════════════════════════════════════════════════════════
+// BID CONFIRMATION MODAL
+// ═══════════════════════════════════════════════════════════
+let _pendingBidFn=null; // stores the actual submit callback after confirmation
+
+function showBidConfirmModal(bidAmount, poolLabel, onConfirm){
+    document.getElementById('bidConfirmAmount').textContent=bidAmount.toLocaleString('en-IN');
+    document.getElementById('bidConfirmPoolLabel').textContent=poolLabel;
+    _pendingBidFn=onConfirm;
+    document.getElementById('bidConfirmModal').classList.add('open');
+}
+
+function closeBidModal(){
+    document.getElementById('bidConfirmModal').classList.remove('open');
+    _pendingBidFn=null;
+}
+
+async function confirmBidSubmit(){
+    const btn=document.getElementById('bidConfirmBtn');
+    btn.textContent='Submitting…';
+    btn.disabled=true;
+    document.getElementById('bidConfirmModal').classList.remove('open');
+    if(_pendingBidFn) await _pendingBidFn();
+    _pendingBidFn=null;
+    btn.textContent='✓ Confirm & Submit';
+    btn.disabled=false;
+}
+
 async function submitMemberBid(poolId,poolName,month,maxBid){
     const input=document.getElementById('bidInput_'+poolId);
     if(!input){alert('Bid input not found. Please refresh and try again.');return;}
@@ -1960,8 +2071,10 @@ async function submitMemberBid(poolId,poolName,month,maxBid){
     if(!bidAmount||bidAmount<1){alert('Enter a valid bid amount (minimum Rs 1).');return;}
     if(bidAmount>maxBid){alert('Bid cannot exceed Rs '+maxBid.toLocaleString('en-IN'));return;}
 
+    // Show confirmation modal — actual submission only happens after member confirms
+    showBidConfirmModal(bidAmount, poolName+' — Month '+month, async ()=>{
     try{
-    // Check if already has an ACTIVE bid (non-rejected)
+    // Re-check for active bid at confirm time (guard against double-submit)
     const existing=await db.collection('memberBids')
         .where('poolId','==',poolId)
         .where('memberEmail','==',CU.email)
@@ -1991,7 +2104,7 @@ async function submitMemberBid(poolId,poolName,month,maxBid){
         if(tbDoc.exists) await tbRef.update({status:'completed'});
     }catch(e){}
 
-    // Notify agent/admin
+    // Notify agent/admin about the bid
     const poolDoc=await db.collection('pools').doc(poolId).get();
     const pool=poolDoc.data();
     const rebidLabel=existing.size>0?' (re-bid)':'';
@@ -2005,7 +2118,18 @@ async function submitMemberBid(poolId,poolName,month,maxBid){
         createdAt:new Date().toISOString()
     });
 
-    document.getElementById('bidMsg_'+poolId).innerHTML='<div class="msg msg-ok">✅ Bid submitted: Rs '+bidAmount.toLocaleString('en-IN')+'</div>';
+    // Confirm to the member themselves via notification
+    await db.collection('notifications').add({
+        type:'bid_confirmed',
+        message:'✅ Your bid of Rs '+bidAmount.toLocaleString('en-IN')+' for "'+poolName+'" Month '+month+' has been submitted successfully. It is now locked. Contact your admin if you need a re-bid.',
+        poolId,
+        targetUid:CU.uid,
+        forAdmin:false,
+        read:false,
+        createdAt:new Date().toISOString()
+    });
+
+    document.getElementById('bidMsg_'+poolId).innerHTML='<div class="msg msg-ok">✅ Bid confirmed and submitted: Rs '+bidAmount.toLocaleString('en-IN')+'</div>';
     setTimeout(()=>loadMemberBids(),1500);
     }catch(err){
         console.error('Bid submission error:',err);
@@ -2013,6 +2137,7 @@ async function submitMemberBid(poolId,poolName,month,maxBid){
         if(msgEl) msgEl.innerHTML='<div class="msg msg-err">❌ Error: '+err.message+'</div>';
         else alert('Error submitting bid: '+err.message);
     }
+    });
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -2043,7 +2168,7 @@ async function loadMemberNotifications(){
     let html='<div class="card"><h2>📢 Notifications & Announcements</h2>';
     if(notifications.length===0){html+='<p class="note">No notifications yet.</p>';}
     notifications.forEach(n=>{
-        const icon=n.type==='member_joined'?'👋':n.type==='bid_submitted'?'📝':n.type==='payment_approved'?'✅':n.type==='payment_rejected'?'❌':n.type==='announcement'?'📢':n.type==='bid_rejected'?'🚫':n.type==='tie_breaker'?'🤝':n.type==='bid_result'?'🏆':'🔔';
+        const icon=n.type==='member_joined'?'👋':n.type==='bid_submitted'?'📝':n.type==='bid_confirmed'?'✅':n.type==='bid_rebid_allowed'?'↺':n.type==='payment_approved'?'✅':n.type==='payment_rejected'?'❌':n.type==='announcement'?'📢':n.type==='bid_rejected'?'🚫':n.type==='tie_breaker'?'🤝':n.type==='bid_result'?'🏆':'🔔';
         const readStyle=n.read?'opacity:0.6':'';
         const time=new Date(n.createdAt).toLocaleString('en-IN');
         html+=`<div class="item" style="${readStyle}"><div>${icon} ${n.message}<br><span style="font-size:9px;color:#999">${time}</span></div></div>`;
